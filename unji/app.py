@@ -16,6 +16,7 @@ try:
     st.components.v1.html(html_content, height=1000, scrolling=True)
 
 except FileNotFoundError:
-    st.error(f"오류: '{html_file_path}' 파일을 찾을 수 없습니다. 'htmls' 폴더 안에 'presentation.html' 파일이 있는지 확인해주세요.")
+    st.error(f"오류: '{html_file_path}' 파일을 찾을 수 없습니다. 'htmls' 폴더 안에 'index.html' 파일이 있는지 확인해주세요.")
 except Exception as e:
     st.error(f"파일을 읽는 도중 오류가 발생했습니다: {e}")
+
