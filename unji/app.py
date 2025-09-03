@@ -6,7 +6,7 @@ st.set_page_config(layout="wide")
 st.title("인간의 죽음, 사람들은 언제라고 생각할까?")
 
 # HTML 파일의 경로를 지정합니다.
-html_file_path = "htmls/index.html"
+html_file_path = "unji/htmls/index.html"
 
 try:
     with open(html_file_path, "r", encoding="utf-8") as f:
@@ -19,4 +19,5 @@ except FileNotFoundError:
     st.error(f"오류: '{html_file_path}' 파일을 찾을 수 없습니다. 'htmls' 폴더 안에 'index.html' 파일이 있는지 확인해주세요.")
 except Exception as e:
     st.error(f"파일을 읽는 도중 오류가 발생했습니다: {e}")
+
 
