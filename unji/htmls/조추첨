@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>선호 & 성비 반영 조추첨 시뮬레이터</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa4b2;--accent:#7dd3fc}
+    body{font-family:Inter,Roboto,Segoe UI,Arial;margin:0;background:linear-gradient(180deg,#071026 0%,#07121a 100%);color:#e6eef6}
+    .wrap{max-width:980px;margin:36px auto;padding:28px;border-radius:12px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));box-shadow:0 8px 30px rgba(2,6,23,0.6)}
+    h1{margin:0 0 8px;font-size:20px}
+    p.lead{margin:0 0 18px;color:var(--muted)}
+    .grid{display:grid;grid-template-columns:1fr 380px;gap:18px}
+    label{display:block;font-size:13px;margin-bottom:6px;color:var(--muted)}
+    textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.02);color:inherit;font-size:14px}
+    textarea{min-height:120px;resize:vertical}
+    .controls{display:flex;gap:8px;margin-top:8px}
+    button{background:var(--accent);border:none;padding:10px 12px;border-radius:8px;color:#04202b;font-weight:600;cursor:pointer}
+    .muted{color:var(--muted);font-size:13px}
+    .output{margin-top:12px;padding:12px;border-radius:10px;background:rgba(0,0,0,0.2)}
+    table{width:100%;border-collapse:collapse}
+    td,th{padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);vertical-align:top}
+    .group-card{background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);padding:10px;border-radius:8px;margin-bottom:10px}
+    pre{background:#020617;padding:12px;border-radius:8px;overflow:auto;color:#cde}
+    .small{font-size:13px}
+    .ok{color:#7efc9d}
+    .warn{color:#ffd47a}
+    .score{font-weight:700}
+    @media(max-width:880px){.grid{grid-template-columns:1fr;}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>선호 & 성비 반영 조추첨 시뮬레이터</h1>
+    <p class="lead">남/여 리스트와 선호(같이 하고 싶은 사람 쌍), 그리고 한 조당 인원수를 입력하면 성비와 선호를 최대한 맞춰 조를 생성합니다. 오른쪽에서 Python 원본 코드도 함께 확인할 수 있어요.</p>
+
+    <div class="grid">
+      <div>
+        <label>남자 이름들 (콤마 또는 줄바꿈으로 구분)</label>
+        <textarea id="males" placeholder="예: 김철수, 이준호, 박민수"></textarea>
+
+        <label style="margin-top:10px">여자 이름들 (콤마 또는 줄바꿈으로 구분)</label>
+        <textarea id="females" placeholder="예: 김영희, 이수진, 최민아"></textarea>
+
+        <label style="margin-top:10px">선호 쌍 (각 줄에 A,B 형식 - A와 B가 같은 조가 되길 원함)</label>
+        <textarea id="prefs" placeholder="예:\n김철수,김영희\n이준호,최민아"></textarea>
+
+        <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+          <div style="flex:1">
+            <label>한 조당 인원</label>
+            <input id="gsize" type="number" min="2" value="4">
+          </div>
+          <div style="width:120px">
+            <label>시도 횟수 (무작위 재시도)</label>
+            <input id="tries" type="number" min="1" value="300">
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="runBtn">조 생성</button>
+          <button id="clearBtn" style="background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)">지우기</button>
+        </div>
+
+        <div id="msg" class="muted small" style="margin-top:10px"></div>
+
+        <div id="result" class="output"></div>
+      </div>
+
+      <div>
+        <label>설명 & 파이썬 원본 코드</label>
+        <div style="padding:10px;border-radius:8px;background:rgba(255,255,255,0.02);height:100%;overflow:auto">
+          <p class="muted small">아래는 시뮬레이터의 동작 원리를 보여주는 Python 코드(참고용)입니다. 브라우저에서 실행되는 코드는 동일한 알고리즘을 JavaScript로 구현한 것입니다.</p>
+          <pre id="pycode">import random
+
+# 입력: males (list), females (list), preferences (list of 2-tuples), group_size (int)
+
+def create_groups(males, females, preferences, group_size, max_tries=500):
+    total = len(males) + len(females)
+    if total % group_size != 0:
+        raise ValueError('총 인원({})이 한 조당 인원({})로 나누어지지 않습니다.'.format(total, group_size))
+
+    num_groups = total // group_size
+    male_ratio = len(males) / total
+    ideal_male = round(male_ratio * group_size)
+
+    for attempt in range(max_tries):
+        groups = [[] for _ in range(num_groups)]
+        used = set()
+
+        # 1) 선호 묶음 먼저 넣기
+        for a, b in preferences:
+            placed = False
+            for g in groups:
+                if len(g) + 2 <= group_size:
+                    g.extend([a, b])
+                    used.add(a); used.add(b)
+                    placed = True
+                    break
+            if not placed:
+                break
+
+        if len(used) != sum(1 for _ in preferences) * 2 and len(used) > 0:
+            continue  # 선호를 못넣었으면 재시도
+
+        # 2) 남/여 따로 섞어서 채우기
+        remaining = [x for x in males + females if x not in used]
+        random.shuffle(remaining)
+
+        for person in remaining:
+            # 빈칸이 있는 그룹 중에 현재 성비와 비교해서 넣을 그룹 고르기
+            best = None
+            best_score = 1e9
+            for gi,g in enumerate(groups):
+                if len(g) >= group_size: continue
+                mcount = sum(1 for x in g if x in males)
+                target = ideal_male
+                score = abs((mcount + (1 if person in males else 0)) - target)
+                if score < best_score:
+                    best_score = score; best = gi
+            groups[best].append(person)
+
+        # 성공시 반환
+        return groups
+
+    raise RuntimeError('조건을 만족하는 배분을 찾지 못했습니다.')
+</pre>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;font-size:13px;color:var(--muted)">
+      <p>사용 팁: 선호 쌍이 너무 많아 한 조에 다 넣기 불가능하면 시뮬레이터가 재시도 후 최적의 결과를 보여줍니다. 원하는 정책(선호 최우선/성비 최우선 등)은 스코어 계산 부분을 수정하면 됩니다.</p>
+    </div>
+  </div>
+
+  <script>
+    // 유틸
+    function splitNames(text){
+      if(!text) return [];
+      return text.split(/[,\n]+/).map(s=>s.trim()).filter(Boolean);
+    }
+    function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]] } }
+
+    function divisors(n){ const res=[]; for(let i=1;i<=Math.floor(Math.sqrt(n));i++){ if(n%i===0){ res.push(i); if(i!==n/i) res.push(n/i); } } return res.sort((a,b)=>a-b); }
+    function nearestDivisor(total,desired){ const divs=divisors(total); if(divs.length===0) return null; let best=divs[0]; let bestDiff=Math.abs(best-desired); for(const d of divs){ const diff=Math.abs(d-desired); if(diff<bestDiff){ best=d; bestDiff=diff; } } return best; }
+
+    function makeGroups(males,females,prefs,group_size,max_tries){
+      const total=males.length+females.length;
+      if(total===0) return {error:'이름을 입력하세요.'};
+      if(total%group_size!==0) return {error:'총 인원('+total+')이 한 조('+group_size+')로 나누어지지 않습니다.',suggest:nearestDivisor(total,group_size)};
+
+      const num_groups = total / group_size;
+      const maleRatio = males.length/total;
+      const idealMale = Math.round(maleRatio*group_size);
+
+      // try multiple random attempts and keep best by score
+      let bestRes=null; let bestScore=-Infinity;
+
+      for(let t=0;t<max_tries;t++){
+        const groups = Array.from({length:num_groups},()=>[]);
+        const used = new Set();
+
+        // preferences: attempt to place pairs (if both exist in lists)
+        let ok=true;
+        for(const [a,b] of prefs){
+          if(!a||!b) continue;
+          // ensure they are in pool
+          const existsA = males.includes(a) || females.includes(a);
+          const existsB = males.includes(b) || females.includes(b);
+          if(!existsA || !existsB){ ok=false; break; }
+          // find group that can accept both
+          let placed=false;
+          // shuffle group order for fairness
+          const order = [...Array(num_groups).keys()]; shuffle(order);
+          for(const gi of order){
+            if(groups[gi].length+2<=group_size){
+              groups[gi].push(a,b);
+              used.add(a); used.add(b);
+              placed=true; break;
+            }
+          }
+          if(!placed){ ok=false; break; }
+        }
+        if(!ok) continue;
+
+        // remaining
+        const remaining = [...males.filter(x=>!used.has(x)), ...females.filter(x=>!used.has(x))];
+        shuffle(remaining);
+
+        // greedy: try to fill toward idealMale per group
+        for(const person of remaining){
+          let bestG=null; let bestScoreG=1e9;
+          for(let gi=0;gi<num_groups;gi++){
+            const g = groups[gi]; if(g.length>=group_size) continue;
+            const mcount = g.filter(x=>males.includes(x)).length;
+            const willBe = mcount + (males.includes(person)?1:0);
+            const score = Math.abs(willBe - idealMale) + (g.length/ group_size)*0.1; // prefer less-filled
+            if(score<bestScoreG){ bestScoreG=score; bestG=gi; }
+          }
+          if(bestG===null){ ok=false; break; }
+          groups[bestG].push(person);
+        }
+        if(!ok) continue;
+
+        // evaluate: preference satisfaction (# pairs in same group) and gender variance
+        let prefSat=0;
+        for(const [a,b] of prefs){
+          for(const g of groups){ if(g.includes(a) && g.includes(b)){ prefSat++; break; } }
+        }
+        const maleCounts = groups.map(g=>g.filter(x=>males.includes(x)).length);
+        const genderVar = maleCounts.reduce((s,v)=>s+Math.abs(v-idealMale),0);
+
+        // score: prefSat primary, -genderVar secondary (lower var better)
+        const score = prefSat*100 - genderVar;
+        if(score>bestScore){ bestScore=score; bestRes={groups,prefSat,genderVar,maleCounts,idealMale}; if(bestScore===prefs.length*100) break; }
+      }
+
+      if(!bestRes) return {error:'조건을 만족하는 배분을 찾지 못했습니다 (시도 횟수 늘려보세요).'};
+      return {result:bestRes};
+    }
+
+    // UI wiring
+    const runBtn=document.getElementById('runBtn');
+    const clearBtn=document.getElementById('clearBtn');
+    const msg=document.getElementById('msg');
+    const resultEl=document.getElementById('result');
+
+    runBtn.addEventListener('click',()=>{
+      msg.textContent = '';
+      resultEl.innerHTML='';
+      const males = splitNames(document.getElementById('males').value);
+      const females = splitNames(document.getElementById('females').value);
+      const prefsRaw = document.getElementById('prefs').value.split(/\n+/).map(s=>s.trim()).filter(Boolean);
+      const prefs = prefsRaw.map(line=>line.split(/[,]+/).map(s=>s.trim())).map(a=>[a[0]||'',a[1]||'']).filter(a=>a[0]&&a[1]);
+      const gsize = parseInt(document.getElementById('gsize').value)||0;
+      const tries = parseInt(document.getElementById('tries').value)||300;
+
+      const out = makeGroups(males,females,prefs,gsize,tries);
+      if(out.error){ msg.innerHTML = '<span class="warn">'+out.error+'</span>' + (out.suggest?(' → 추천 한 조 인원: <b>'+out.suggest+'</b>':'') ); return; }
+
+      const {groups,prefSat,genderVar,maleCounts,idealMale} = out.result;
+
+      // render summary
+      const total = males.length + females.length;
+      let html = `<div class="small">총 ${total}명, 조당 ${gsize}명, 조 수: ${groups.length} · 이상적 남자수/조: ${idealMale}</div>`;
+      html += `<div class="small" style="margin-top:6px">선호 만족: <span class="score">${prefSat}</span> / ${prefs.length} 쌍</div>`;
+      html += '<div style="margin-top:10px">';
+      groups.forEach((g,i)=>{
+        html += `<div class="group-card">`;
+        html += `<div style="display:flex;justify-content:space-between;align-items:center"><div><b>그룹 ${i+1}</b> (${g.length}명)</div><div class="muted small">남 ${maleCounts[i]} / 여 ${g.length - maleCounts[i]}</div></div>`;
+        html += '<div style="margin-top:8px">'+ g.map(x=>'<span>'+x+'</span>').join(' · ') +'</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+
+      resultEl.innerHTML = html;
+    });
+
+    clearBtn.addEventListener('click',()=>{ document.getElementById('males').value=''; document.getElementById('females').value=''; document.getElementById('prefs').value=''; document.getElementById('gsize').value=4; document.getElementById('msg').textContent=''; document.getElementById('result').innerHTML=''; });
+  </script>
+</body>
+</html>
