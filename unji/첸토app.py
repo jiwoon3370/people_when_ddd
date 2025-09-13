@@ -3,7 +3,7 @@ import os
 
 # Streamlit 앱 설정
 st.set_page_config(layout="wide")
-st.title("인간의 죽음, 사람들은 언제라고 생각할까?")
+st.title("첸토 가이드 프로그램")
 
 # HTML 파일의 경로를 지정합니다.
 html_file_path = "unji/htmls/첸토.html"
