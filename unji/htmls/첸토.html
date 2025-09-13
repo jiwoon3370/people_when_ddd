@@ -5,66 +5,183 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>첸토 스위치 도우미 🎲</title>
   <style>
-    :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa4b2;--accent:#7dd3fc}
-    body{font-family:Inter,Roboto,Segoe UI,Arial;margin:0;background:linear-gradient(180deg,#071026 0%,#07121a 100%);color:#e6eef6}
-    .wrap{max-width:980px;margin:36px auto;padding:28px;border-radius:12px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));box-shadow:0 8px 30px rgba(2,6,23,0.6)}
-    h1{margin:0 0 8px;font-size:20px}
-    p.lead{margin:0 0 18px;color:var(--muted)}
-    .grid{display:grid;grid-template-columns:1fr 380px;gap:18px}
-    label{display:block;font-size:13px;margin-bottom:6px;color:var(--muted)}
-    input{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.02);color:inherit;font-size:14px;text-align:center}
-    .controls{display:flex;gap:8px;margin-top:12px}
-    button{background:var(--accent);border:none;padding:10px 12px;border-radius:8px;color:#04202b;font-weight:600;cursor:pointer}
-    .muted{color:var(--muted);font-size:13px}
-    .output{margin-top:12px;padding:12px;border-radius:10px;background:rgba(0,0,0,0.2)}
-    .board{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px}
-    .slot input{width:100%;height:60px;font-size:18px;font-weight:600;border-radius:8px}
-    pre{background:#020617;padding:12px;border-radius:8px;overflow:auto;color:#cde}
-    .small{font-size:13px}
-    .warn{color:#ffd47a}
-    .ok{color:#7efc9d}
-    @media(max-width:880px){.grid{grid-template-columns:1fr}}
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #74ebd5 0%, #9face6 100%);
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      color: #2c3e50;
+    }
+    .wrap {
+      max-width: 1000px;
+      width: 100%;
+      background: rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: 20px;
+    }
+    h1 {
+      margin-bottom: 10px;
+      font-size: 1.6rem;
+      text-align: center;
+      text-shadow: 1px 1px 2px #fff;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      margin: 25px 0;
+      justify-items: center;
+    }
+    .slot-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .slot-label {
+      font-size: 13px;
+      margin-bottom: 4px;
+      color: #2c3e50;
+      font-weight: bold;
+    }
+    .slot {
+      width: 60px;
+      height: 90px;
+      border-radius: 12px;
+      background: white;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: bold;
+      color: #34495e;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .slot:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+    }
+    .slot input {
+      width: 100%;
+      height: 100%;
+      border: none;
+      border-radius: 12px;
+      text-align: center;
+      font-size: 20px;
+      font-weight: bold;
+      color: #34495e;
+      background: transparent;
+    }
+    .slot input:focus { outline: none; background: #ecf0f1; }
+    .controls { margin-top: 20px; text-align: center; }
+    input[type=number] {
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+      width: 120px;
+      text-align: center;
+    }
+    button {
+      padding: 10px 18px;
+      margin-left: 10px;
+      background: #ff7675;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+      transition: background 0.2s, transform 0.2s;
+    }
+    button:hover { background: #d63031; transform: scale(1.05); }
+    #result {
+      margin-top: 25px;
+      padding: 15px 20px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      font-size: 18px;
+      color: #2c3e50;
+      min-width: 250px;
+      text-align: center;
+    }
+    .sidebox {
+      background: rgba(255,255,255,0.85);
+      border-radius: 12px;
+      padding: 15px;
+      font-size: 14px;
+      color: #2c3e50;
+      overflow:auto;
+      max-height: 600px;
+    }
+    pre {
+      background:#020617;
+      padding:12px;
+      border-radius:8px;
+      overflow:auto;
+      color:#cde;
+      font-size: 13px;
+    }
+    .muted { font-size: 13px; color:#555 }
+    @media(max-width:880px){
+      .wrap{grid-template-columns:1fr;}
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>첸토 스위치 도우미 🎲</h1>
-    <p class="lead">10장의 카드를 오름차순으로 맞추는 게임 <b>첸토 스위치</b>에서, 새로 뽑은 카드를 어디에 넣는 게 최적인지 추천해주는 시뮬레이터입니다. 오른쪽에는 원본 Python 코드(참고용)가 함께 나와 있어요. 실제 실행은 JavaScript 기반입니다.</p>
+    <!-- 왼쪽: 실행 UI -->
+    <div>
+      <h1>첸토 스위치 도우미 🎲</h1>
 
-    <div class="grid">
-      <!-- 왼쪽: 실행 UI -->
-      <div>
-        <label>현재 카드 상태 (빈 칸은 비워두세요)</label>
-        <div class="board">
-          <div class="slot"><input id="c0" placeholder="?" /></div>
-          <div class="slot"><input id="c1" placeholder="?" /></div>
-          <div class="slot"><input id="c2" placeholder="?" /></div>
-          <div class="slot"><input id="c3" placeholder="?" /></div>
-          <div class="slot"><input id="c4" placeholder="?" /></div>
-          <div class="slot"><input id="c5" placeholder="?" /></div>
-          <div class="slot"><input id="c6" placeholder="?" /></div>
-          <div class="slot"><input id="c7" placeholder="?" /></div>
-          <div class="slot"><input id="c8" placeholder="?" /></div>
-          <div class="slot"><input id="c9" placeholder="?" /></div>
-        </div>
-
-        <label style="margin-top:12px">새 카드</label>
-        <input id="newCard" type="number" placeholder="숫자 입력" />
-
-        <div class="controls">
-          <button id="runBtn">추천받기</button>
-          <button id="clearBtn" style="background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)">지우기</button>
-        </div>
-
-        <div id="result" class="output">추천 결과가 여기에 표시됩니다.</div>
+      <!-- 위쪽 5칸 -->
+      <div class="board">
+        <div class="slot-container"><div class="slot-label">1</div><div class="slot"><input id="c0" placeholder="?" /></div></div>
+        <div class="slot-container"><div class="slot-label">2</div><div class="slot"><input id="c1" placeholder="?" /></div></div>
+        <div class="slot-container"><div class="slot-label">3</div><div class="slot"><input id="c2" placeholder="?" /></div></div>
+        <div class="slot-container"><div class="slot-label">4</div><div class="slot"><input id="c3" placeholder="?" /></div></div>
+        <div class="slot-container"><div class="slot-label">5</div><div class="slot"><input id="c4" placeholder="?" /></div></div>
       </div>
 
-      <!-- 오른쪽: 코드 설명 -->
-      <div>
-        <label>설명 & 파이썬 원본 코드</label>
-        <div style="padding:10px;border-radius:8px;background:rgba(255,255,255,0.02);height:100%;overflow:auto">
-          <p class="muted small">아래는 이 도우미가 따르는 원리의 Python 코드입니다. 실제 웹에서는 동일한 로직을 <b>JavaScript</b>로 구현하여 실행합니다.</p>
-<pre>def best_move(cards, new_card):
+      <!-- 아래쪽 5칸 -->
+      <div class="board">
+        <div class="slot-container"><div class="slot-label">6</div><div class="slot"><input id="c5" placeholder="?" /></div></div>
+        <div class="slot-container"><div class="slot-label">7</div><div class="slot"><input id="c6" placeholder="?" /></div></div>
+        <div class="slot-container"><div class="slot-label">8</div><div class="slot"><input id="c7" placeholder="?" /></div></div>
+        <div class="slot-container"><div class="slot-label">9</div><div class="slot"><input id="c8" placeholder="?" /></div></div>
+        <div class="slot-container"><div class="slot-label">10</div><div class="slot"><input id="c9" placeholder="?" /></div></div>
+      </div>
+
+      <div class="controls">
+        <input id="newCard" type="number" placeholder="새 카드" />
+        <button id="runBtn">추천받기</button>
+        <button id="clearBtn">지우기</button>
+      </div>
+
+      <div id="result">추천 결과가 여기에 표시됩니다.</div>
+    </div>
+
+    <!-- 오른쪽: 설명 & 코드 -->
+    <div class="sidebox">
+      <h3>📖 사용법</h3>
+      <ol>
+        <li>위·아래 5칸에 현재 보유한 카드를 입력합니다. (비어있는 칸은 그대로 두세요)</li>
+        <li>새로 뽑은 카드를 입력합니다.</li>
+        <li><b>추천받기</b> 버튼을 누르면 최적의 위치가 표시됩니다.</li>
+      </ol>
+      <p class="muted">※ 실제 로직은 JavaScript로 실행되며, 아래는 동일한 동작을 하는 Python 코드입니다.</p>
+<pre>
+def best_move(cards, new_card):
     candidates = []
     for i in range(len(cards)):
         if cards[i] is None:
@@ -79,8 +196,6 @@
     else:
         return f"새 카드 {new_card}는 어디에도 맞지 않습니다. 버리세요."
 </pre>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -116,7 +231,7 @@
         cards.push(val?parseInt(val):null);
       }
       const newCard=parseInt(document.getElementById('newCard').value);
-      if(isNaN(newCard)){ result.innerHTML='<span class="warn">새 카드를 입력하세요.</span>'; return; }
+      if(isNaN(newCard)){ result.innerHTML='<span style="color:#e67e22">새 카드를 입력하세요.</span>'; return; }
       result.textContent=bestMove(cards,newCard);
     });
 
