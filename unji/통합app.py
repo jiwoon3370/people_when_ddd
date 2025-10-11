@@ -9,8 +9,8 @@ st.title("정보과제연구 실습 모음")
 html_files = {
     "메인 페이지": "unji/htmls/index.html",
     "조추첨": "unji/htmls/조추첨.html",
-    "첸토": "unji/htmls/첸토.html"
-    "HP스택 시스템": "unji/htmls/stack_hp.html"
+    "첸토": "unji/htmls/첸토.html",
+    "HP스택 시스템": "unji/htmls/stack_hp.html",
     "연구주제 선정": "unji/htmls/manige.html"
 }
 
