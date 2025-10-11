@@ -1,0 +1,12 @@
+credentials:
+  usernames:
+    # 'testuser'라는 사용자 ID를 만듭니다. (로그인 ID)
+    testuser:
+      email: test@example.com
+      name: 테스트 사용자
+      # 비밀번호 '123'을 해시 처리한 값입니다. (로그인 비밀번호)
+      password: $2b$12$04t5lqXg2c.tP.N5D0W/I.l8V9eB1tL8w3l7r0m2S1r5.0.0.0.0
+cookie:
+  expiry_days: 30
+  key: random_signature_key # 아무 문자열이나 넣으세요
+  name: auth_cookie
