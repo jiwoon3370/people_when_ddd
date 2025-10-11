@@ -6,7 +6,7 @@ st.set_page_config(layout="wide")
 st.title("AI Plan Partner")
 
 # HTML 파일의 경로를 지정합니다.
-html_file_path = "unji/htmls/index.html"
+html_file_path = "unji/htmls/AI_partner.html"
 
 try:
     with open(html_file_path, "r", encoding="utf-8") as f:
