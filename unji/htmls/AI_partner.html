@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 학습 파트너 (AI Learning Partner)</title>
+    <!-- Tailwind CSS 로드 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons 로드 -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', 'Spoqa Han Sans Neo', sans-serif;
+            background-color: #eef2f8; /* 은은한 배경 */
+            overflow: hidden; /* 전체 스크롤 방지 */
+        }
+        /* 메인 레이아웃: 사이드바 + 컨텐츠 */
+        #app-container {
+            display: flex;
+            height: 100vh;
+            transition: all 0.3s ease-in-out;
+        }
+        /* 사이드바 스타일 */
+        #sidebar {
+            width: 320px;
+            min-width: 320px;
+            transition: width 0.3s ease-in-out, min-width 0.3s ease-in-out;
+            overflow-y: auto;
+            background-color: #ffffff;
+            box-shadow: 4px 0 12px rgba(0, 0, 0, 0.05);
+            padding: 1rem;
+        }
+        /* 최소화된 사이드바 */
+        .sidebar-minimized {
+            width: 64px !important;
+            min-width: 64px !important;
+            overflow: hidden;
+        }
+        /* 메인 컨텐츠 영역 */
+        #main-content {
+            flex-grow: 1;
+            padding: 1.5rem;
+            overflow-y: auto; /* 핵심: 메인 컨텐츠 영역 스크롤 가능 */
+        }
+        /* 커스텀 스크롤바 (폴더/파일 영역용) */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background-color: #f1f5f9;
+        }
+        /* 로딩 스피너 애니메이션 */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #2563eb;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        
+        /* 일정 형광펜 막대 스타일 */
+        .schedule-bar {
+            height: 20px; /* 막대 높이 */
+            line-height: 20px;
+            font-size: 0.75rem; /* text-xs */
+            font-weight: 500; /* font-medium */
+            padding: 0 4px;
+            margin-bottom: 2px;
+            border-radius: 4px; /* Default for single day */
+            overflow: hidden;
+            white-space: nowrap;
+            position: relative;
+            width: 100%; /* Default for single day */
+            z-index: 10; /* Ensure bars overlap cell boundaries slightly */
+            opacity: 1; /* 기본 투명도 */
+            transition: opacity 0.3s;
+        }
+        .schedule-bar.is-done {
+            opacity: 0.5; /* 완료된 일정은 연하게 */
+            text-decoration: line-through;
+        }
+        .schedule-title {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        /* --- 기간 일정 연속 표시 CSS (경계선 제거 효과) --- */
+        .schedule-bar.is-period {
+            border-radius: 0;
+            /* 셀 내부 패딩(p-2=8px)을 덮고, 그리드 간격(gap-2=8px)의 절반(4px)을 덮도록 확장 */
+            width: calc(100% + 16px + 4px); /* 100% + 8px(L 패딩) + 8px(R 패딩) + 4px(오른쪽 gap 절반) */
+            margin-left: -8px; /* L 패딩 보상 */
+            margin-right: -4px; /* R gap 절반 덮기 */
+            padding-left: 8px; /* 텍스트 위한 왼쪽 패딩 복구 */
+            padding-right: 4px; /* 오른쪽 패딩 줄여서 연결 강조 */
+        }
+
+        .schedule-bar.period-start-day {
+            border-top-left-radius: 4px;
+            border-bottom-left-radius: 4px;
+            /* 오른쪽으로 더 확장하여 다음 셀과의 경계를 덮음 (8px + 4px = 12px) */
+            margin-right: -12px; 
+            padding-right: 0; /* 오른쪽 패딩 제거하여 완벽하게 연결 */
+            width: calc(100% + 16px + 8px); /* 100% + 16px (패딩) + 8px (전체 갭) */
+        }
+
+        .schedule-bar.period-end-day {
+            border-top-right-radius: 4px;
+            border-bottom-right-radius: 4px;
+            /* 왼쪽으로 더 확장하여 이전 셀과의 경계를 덮음 (8px + 4px = 12px) */
+            margin-left: -12px; 
+            margin-right: -8px; /* 오른쪽 패딩 보상만 */
+            padding-left: 0; /* 왼쪽 패딩 제거하여 완벽하게 연결 */
+            padding-right: 8px; /* 텍스트 위한 오른쪽 패딩 복구 */
+            width: calc(100% + 16px + 8px); 
+        }
+
+        .schedule-bar.period-middle-day {
+            /* 양쪽 경계를 모두 덮음 */
+            margin-left: -12px;
+            margin-right: -12px;
+            padding-left: 0;
+            padding-right: 0;
+            width: calc(100% + 16px + 16px); /* 100% + 패딩 16px + 양쪽 갭 16px */
+        }
+        /* --- 기간 일정 연속 표시 CSS 끝 --- */
+
+        /* 캘린더 셀 기본 스타일 */
+        .calendar-day-cell {
+            padding: 8px;
+            border: 1px solid #e5e7eb; /* border-gray-200 */
+            min-height: 100px;
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05); /* shadow-sm */
+            background-color: #ffffff;
+            cursor: pointer;
+            transition: background-color 0.15s, transform 0.1s;
+        }
+        /* 호버 효과 */
+        .calendar-day-cell:hover {
+            background-color: #f1f5f9; /* bg-gray-100 */
+            transform: translateY(-1px);
+        }
+        /* 오늘 날짜 스타일 */
+        .is-today {
+            background-color: #dbeafe; /* bg-blue-100 */
+            border-color: #3b82f6; /* ring-blue-500 */
+        }
+        
+        /* 모달 스타일 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            width: 90%;
+            max-width: 600px; /* 모달 크기 확장 */
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .input-modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            width: 90%;
+            max-width: 400px; /* 작은 입력 모달 */
+        }
+
+        /* 일정 색상 팔레트 (파스텔톤) */
+        .event-color-0 { background-color: #ffb7b7; color: #a5001c; } /* Light Red */
+        .event-color-1 { background-color: #ffe0b2; color: #9a3412; } /* Light Orange */
+        .event-color-2 { background-color: #c8e6c9; color: #3f6212; } /* Light Green */
+        .event-color-3 { background-color: #bbdefb; color: #1e40af; } /* Light Blue */
+        .event-color-4 { background-color: #e1bee7; color: #5b21b6; } /* Light Purple */
+
+        /* 캘린더 컨테이너: 스크롤 기능 추가 */
+        #calendar-grid-container {
+            max-height: calc(100vh - 200px); /* 캘린더 헤더와 하단 채팅 영역을 제외한 높이 */
+            overflow-y: auto;
+            padding-right: 8px; /* 스크롤바 공간 확보 */
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+
+    <!-- Firebase SDK (필수) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, query, addDoc, serverTimestamp, updateDoc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        setLogLevel('Debug');
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-ai-partner-app';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        let app, db, auth, userId = null;
+        let currentFolderPaths = []; 
+        let currentSchedules = []; // 전체 일정 데이터를 저장
+        let currentDate = new Date(); // 캘린더 표시 기준 날짜 (월/연도)
+
+        const maxRetries = 3;
+        const initialDelay = 1000;
+
+        // --- 유틸리티 함수 ---
+        function formatDate(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+        function parseDate(dateString) {
+            if (!dateString) return null;
+            const parts = dateString.split('-');
+            // month is 0-indexed in JS Date object
+            return new Date(parts[0], parts[1] - 1, parts[2]); 
+        }
+        
+        // --- [NEW] HTML 속성 안전 문자열 변환 함수 (버그 방지) ---
+        function escapeHtmlAttribute(s) {
+            // 따옴표를 역슬래시+따옴표로 변환하여 onclick 속성 내부에서 JavaScript 문자열로 안전하게 사용
+            return s.replace(/'/g, "\\'"); 
+        }
+
+        // --- Firebase 초기화 및 사용자 인증 ---
+        async function initializeFirebase() {
+            try {
+                if (Object.keys(firebaseConfig).length === 0) {
+                    console.error("Firebase config is missing.");
+                    return;
+                }
+                
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        document.getElementById('user-id-display').textContent = `사용자 ID: ${userId}`;
+                        setupRealtimeListeners();
+                    } else {
+                        userId = crypto.randomUUID();
+                        document.getElementById('user-id-display').textContent = '익명 ID: ' + userId.substring(0, 8) + '...';
+                        setupRealtimeListeners();
+                    }
+                });
+
+            } catch (error) {
+                console.error("Error initializing Firebase:", error);
+            }
+        }
+        
+        // --- 월 이동 및 순간 이동 함수 (업데이트) ---
+        window.changeMonth = function(offset) {
+            currentDate.setMonth(currentDate.getMonth() + offset);
+            renderCalendar(currentSchedules); 
+        }
+
+        window.jumpToMonth = function() {
+            const currentYear = currentDate.getFullYear();
+            const currentMonth = currentDate.getMonth() + 1;
+            
+            // alert 대신 커스텀 메시지를 사용하기 위해, 여기서는 단순화된 입력으로 대체
+            const newDate = window.prompt(`이동할 년도와 월을 입력하세요 (현재: ${currentYear}년 ${currentMonth}월)\n\n예: 2026-05`);
+            
+            if (newDate) {
+                const parts = newDate.split('-').map(p => parseInt(p.trim(), 10));
+                if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1]) && parts[1] >= 1 && parts[1] <= 12) {
+                    currentDate = new Date(parts[0], parts[1] - 1, 1);
+                    renderCalendar(currentSchedules);
+                } else {
+                    document.getElementById('file-status').textContent = '⚠️ 올바른 형식(YYYY-MM)으로 입력해주세요.';
+                    setTimeout(() => { document.getElementById('file-status').textContent = '파일과 내용을 입력 후 업로드하세요.'; }, 3000);
+                }
+            }
+        }
+
+
+        // --- 실시간 리스너 설정 (기존과 동일) ---
+        function setupRealtimeListeners() {
+            if (!db || !userId) return;
+
+            // 0. 폴더 경로 리스너
+            const foldersRef = doc(db, `artifacts/${appId}/users/${userId}/configs/folderPaths`);
+            onSnapshot(foldersRef, (docSnap) => {
+                if (docSnap.exists() && docSnap.data().paths) {
+                    currentFolderPaths = docSnap.data().paths.sort();
+                } else {
+                    ensureInitialFolders();
+                }
+                renderFolderList(currentFolderPaths);
+            }, (error) => { console.error("Error listening to folder paths:", error); });
+
+
+            // 1. 일정 데이터 리스너
+            const schedulesRef = collection(db, `artifacts/${appId}/users/${userId}/schedules`);
+            onSnapshot(schedulesRef, (snapshot) => {
+                const schedules = [];
+                snapshot.forEach(doc => {
+                    schedules.push({ id: doc.id, ...doc.data() });
+                });
+                currentSchedules = schedules; // 전역 변수에 저장
+                renderCalendar(currentSchedules);
+            }, (error) => { console.error("Error listening to schedules:", error); });
+
+            // 2. 파일 메타데이터 리스너
+            const filesRef = collection(db, `artifacts/${appId}/users/${userId}/files`);
+            onSnapshot(filesRef, (snapshot) => {
+                const files = [];
+                snapshot.forEach(doc => { files.push({ id: doc.id, ...doc.data() }); });
+                renderFileExplorer(files); 
+            }, (error) => { console.error("Error listening to files:", error); });
+        }
+        
+        // --- 캘린더 렌더링 함수 (기존과 동일) ---
+        function renderCalendar(schedules) {
+            const calendarGrid = document.getElementById('calendar-grid');
+            const now = new Date();
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth(); // 0부터 시작
+
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0(일) ~ 6(토)
+            
+            document.getElementById('current-month-display').textContent = `${year}년 ${month + 1}월`;
+            calendarGrid.innerHTML = ''; 
+            
+
+            // 빈 칸 채우기
+            for (let i = 0; i < firstDayOfMonth; i++) {
+                calendarGrid.innerHTML += `<div class="p-2 min-h-[100px] rounded-xl bg-gray-100 border border-gray-200"></div>`;
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                
+                // 해당 날짜에 걸쳐 있는 모든 일정 필터링
+                const daySchedules = schedules
+                    .filter(s => {
+                        const start = parseDate(s.startDate);
+                        const end = parseDate(s.endDate || s.startDate); // endDate가 없으면 startDate 사용
+                        const current = parseDate(dateString);
+
+                        if (!start || !current) return false;
+                        
+                        // 현재 날짜가 시작일과 종료일 사이에 있는지 확인 (종료일 포함)
+                        return current >= start && current <= end;
+                    })
+                    .sort((a, b) => (a.time || '23:59').localeCompare(b.time || '23:59'));
+
+                let scheduleHTML = '';
+                
+                daySchedules.forEach((s, index) => {
+                    const colorIndex = index % 5; 
+                    const colorClass = `event-color-${colorIndex}`;
+                    const isPeriod = s.startDate !== s.endDate;
+                    const isStartDay = s.startDate === dateString;
+                    const isEndDay = s.endDate === dateString; 
+                    
+                    let boundaryClass = '';
+                    if (isPeriod) {
+                        if (isStartDay && !isEndDay) {
+                            boundaryClass = 'period-start-day';
+                        } else if (isEndDay && !isStartDay) {
+                            boundaryClass = 'period-end-day';
+                        } else if (!isStartDay && !isEndDay) {
+                            // 중간일 처리 (시작일과 종료일이 아닌 경우)
+                            const start = parseDate(s.startDate);
+                            const end = parseDate(s.endDate);
+                            const current = parseDate(dateString);
+                            if (current > start && current < end) {
+                                boundaryClass = 'period-middle-day';
+                            }
+                        }
+                    }
+
+                    // 완료 상태 반영
+                    const isDoneClass = s.completionStatus === 'DONE' ? 'is-done' : '';
+
+                    let titleContent = '';
+                    
+                    if (isPeriod) {
+                        // 기간 일정: 시작일에만 제목 표시
+                        if (isStartDay) {
+                            titleContent = s.title;
+                        } else {
+                            // 시작일이 아니면 빈 문자열 (색상 막대만 표시)
+                            titleContent = ''; 
+                        }
+                    } else {
+                        // 단일 일정: 시간 + 제목
+                        titleContent = (s.time && s.time !== '23:59' ? `[${s.time}] ` : '') + s.title;
+                    }
+                        
+                    scheduleHTML += `
+                        <div title="${s.title} (${s.startDate} ~ ${s.endDate})" class="schedule-bar ${colorClass} ${isPeriod ? 'is-period' : ''} ${boundaryClass} ${isDoneClass}">
+                            <span class="schedule-title">
+                                ${titleContent}
+                            </span>
+                        </div>
+                    `;
+                });
+
+                const isToday = now.getDate() === day && now.getMonth() === month && now.getFullYear() === year;
+                const todayClass = isToday ? 'is-today ring-2 ring-blue-500' : '';
+
+                calendarGrid.innerHTML += `
+                    <div 
+                        class="calendar-day-cell ${todayClass}"
+                        data-date="${dateString}"
+                        onclick="window.showDayDetailsModal('${dateString}')"
+                    >
+                        <div class="font-bold text-base mb-1 ${isToday ? 'text-blue-700' : 'text-gray-800'}">${day}</div>
+                        <div class="space-y-1">
+                            ${scheduleHTML}
+                        </div>
+                    </div>
+                `;
+            }
+            lucide.createIcons();
+        }
+
+        // --- 상세 일정 모달 열기 (완료 버튼 로직 수정) ---
+        window.showDayDetailsModal = function(dateString) {
+            const modal = document.getElementById('day-details-modal');
+            
+            // 해당 날짜에 걸쳐 있는 모든 일정 필터링
+            const schedulesForDay = currentSchedules.filter(s => {
+                const start = parseDate(s.startDate);
+                const end = parseDate(s.endDate || s.startDate);
+                const current = parseDate(dateString);
+                return current >= start && current <= end;
+            }).sort((a, b) => (a.time || '23:59').localeCompare(b.time || '23:59'));
+
+            document.getElementById('modal-date-title').textContent = `${dateString} 일정 상세 및 실행 기록`;
+            const list = document.getElementById('modal-schedule-list');
+            list.innerHTML = '';
+
+            if (schedulesForDay.length === 0) {
+                list.innerHTML = '<p class="text-gray-500 text-center py-4">해당 날짜에 등록된 일정이 없습니다. 일정을 추가해 보세요.</p>';
+            } else {
+                schedulesForDay.forEach((s, index) => {
+                    const safeTitle = escapeHtmlAttribute(s.title); // [NEW] 제목 이스케이프 적용
+                    const colorClass = `event-color-${index % 5}`;
+                    const timeDisplay = s.time && s.time !== '23:59' ? `<span class="font-mono text-sm text-gray-700 mr-2">[${s.time}]</span>` : '';
+                    const periodDisplay = s.startDate !== s.endDate ? ` <span class="text-xs text-purple-600 ml-2">(${s.startDate} ~ ${s.endDate})</span>` : '';
+                    const statusText = s.completionStatus === 'DONE' ? '✅ 완료됨' : (s.completionStatus === 'SKIP' ? '❌ 건너뜀' : '⏰ 진행 전');
+                    const actualDuration = s.actualDuration && s.actualDuration > 0 ? `<span class="text-xs text-green-700 ml-2">실제 소요: ${s.actualDuration}분</span>` : '';
+
+                    list.innerHTML += `
+                        <li class="p-3 mb-3 rounded-xl border border-gray-200 shadow-lg flex flex-col transition duration-150 ${colorClass}">
+                            <!-- 일정 제목 및 정보 -->
+                            <div class="flex items-start justify-between">
+                                <p class="text-sm font-semibold text-gray-900 flex-1 break-words">${timeDisplay} ${s.title}${periodDisplay}</p>
+                                <button onclick="window.deleteSchedule('${s.id}')" class="text-red-500 hover:text-red-700 ml-3 flex-shrink-0" title="일정 삭제">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+
+                            <!-- 상태 및 실행 기록 -->
+                            <div class="mt-2 text-xs font-medium text-gray-600">
+                                <span>상태: ${statusText}</span>
+                                ${actualDuration}
+                            </div>
+                            
+                            <!-- 실행 기록 입력 버튼 -->
+                            <div class="mt-3 flex space-x-2">
+                                <button onclick="window.markAsDone('${s.id}', '${safeTitle}')" class="flex-1 bg-green-500 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-green-600 transition duration-150" ${s.completionStatus === 'DONE' ? 'disabled' : ''}>
+                                    <i data-lucide="check-circle" class="w-4 h-4 inline mr-1"></i> 완료 기록
+                                </button>
+                                <button onclick="window.updateScheduleStatus('${s.id}', 'SKIP')" class="flex-1 bg-amber-500 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-amber-600 transition duration-150">
+                                    <i data-lucide="skip-forward" class="w-4 h-4 inline mr-1"></i> 건너뛰기
+                                </button>
+                            </div>
+                        </li>
+                    `;
+                });
+            }
+            lucide.createIcons();
+            modal.classList.remove('hidden');
+        }
+
+        // --- 일정 완료 및 소요 시간 입력 (MODIFIED to use Modal) ---
+        window.markAsDone = function(scheduleId, title) {
+            // [MODIFIED] prompt 대신 커스텀 모달 사용
+            window.showDurationInputModal(scheduleId, title);
+        }
+
+        // --- [NEW] 소요 시간 입력 모달 표시 ---
+        window.showDurationInputModal = function(scheduleId, title) {
+            const modal = document.getElementById('duration-input-modal');
+            
+            document.getElementById('duration-input-title').textContent = title;
+            document.getElementById('duration-input-error').textContent = '';
+            document.getElementById('actual-duration-input').value = '';
+            document.getElementById('submit-duration-button').onclick = () => window.submitDuration(scheduleId);
+
+            modal.classList.remove('hidden');
+        }
+        
+        // --- [NEW] 소요 시간 입력 모달 닫기 ---
+        window.closeDurationInputModal = function() {
+            document.getElementById('duration-input-modal').classList.add('hidden');
+            // 포커스를 잃지 않도록 메인 모달을 다시 열어줍니다. (UI 개선)
+            document.getElementById('day-details-modal').classList.remove('hidden'); 
+        }
+
+        // --- [NEW] 소요 시간 제출 및 Firestore 업데이트 ---
+        window.submitDuration = function(scheduleId) {
+            const durationInput = document.getElementById('actual-duration-input');
+            const errorDisplay = document.getElementById('duration-input-error');
+            const durationMinutes = parseInt(durationInput.value.trim(), 10);
+            
+            errorDisplay.textContent = '';
+
+            if (isNaN(durationMinutes) || durationMinutes < 1) {
+                errorDisplay.textContent = "⚠️ 소요 시간은 1분 이상의 숫자로 입력해야 합니다.";
+                return;
+            }
+
+            window.updateScheduleStatus(scheduleId, 'DONE', durationMinutes);
+            window.closeDurationInputModal();
+            window.closeDayDetailsModal(); // 상태가 바뀌었으므로 상세 모달도 닫고 캘린더를 리렌더링
+        }
+
+
+        // --- Firestore 일정 상태 업데이트 (기존과 동일) ---
+        window.updateScheduleStatus = async function(scheduleId, newStatus, duration = 0) {
+            if (!userId) return;
+            
+            try {
+                const docRef = doc(db, `artifacts/${appId}/users/${userId}/schedules`, scheduleId);
+                const updates = {
+                    completionStatus: newStatus,
+                    actualDuration: duration,
+                    updatedAt: serverTimestamp()
+                };
+
+                await updateDoc(docRef, updates);
+                // 모달을 이미 닫았을 수 있으므로 이 함수에서는 모달을 닫지 않거나, 안전하게 처리
+                // window.closeDayDetailsModal(); 
+                document.getElementById('file-status').textContent = `일정 상태가 '${newStatus}'로 성공적으로 업데이트되었습니다. 소요 시간: ${duration}분`;
+            } catch (e) {
+                console.error("Error updating schedule status:", e);
+                document.getElementById('file-status').textContent = "일정 상태 업데이트 중 오류가 발생했습니다.";
+            }
+        }
+
+
+        // --- 일정 삭제 (기존과 동일) ---
+        window.deleteSchedule = async function(scheduleId) {
+            if (!userId) return;
+            
+            const confirmed = window.confirm("정말로 이 일정을 삭제하시겠습니까?");
+            if (confirmed) {
+                try {
+                    const docRef = doc(db, `artifacts/${appId}/users/${userId}/schedules`, scheduleId);
+                    await deleteDoc(docRef);
+                    window.closeDayDetailsModal(); 
+                    document.getElementById('file-status').textContent = "일정이 성공적으로 삭제되었습니다.";
+                } catch (e) {
+                    console.error("Error deleting schedule:", e);
+                    document.getElementById('file-status').textContent = "일정 삭제 중 오류가 발생했습니다.";
+                }
+            }
+        }
+
+        // --- 모달 닫기 ---
+        window.closeDayDetailsModal = function() {
+            document.getElementById('day-details-modal').classList.add('hidden');
+        }
+
+
+        // --- AI (Gemini) API 호출 함수 (Chat-to-Calendar) (기존과 동일) ---
+        window.handleChatInput = async function() {
+            const chatInput = document.getElementById('chat-input');
+            const userQuery = chatInput.value.trim();
+            if (!userQuery || !userId) return;
+
+            const loadingIndicator = document.getElementById('loading-indicator');
+            loadingIndicator.classList.remove('hidden');
+            chatInput.disabled = true;
+
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth() + 1; // 1부터 시작
+
+            // 사용자님의 복잡한 날짜/기간 해석 알고리즘을 AI System Instruction에 반영
+            const systemPrompt = `당신은 사용자의 요청을 분석하여 일정을 추가하거나 삭제하는 JSON 객체를 생성하는 스케줄링 AI입니다. 
+**[현재 달력 컨텍스트]**
+현재 달력에 표시된 년도는 ${year}년, 월은 ${month}월입니다. 이 정보를 날짜가 불완전할 경우의 기준점으로 사용해야 합니다.
+
+**[핵심 규칙]**
+1. **분석 요소:** 'title' (일정의 핵심 제목), 'startDate' (시작일), 'endDate' (종료일), 'time' (시간), 'action' ('ADD' 또는 'DELETE')를 반드시 포함합니다.
+2. **날짜 판단 기준 (YYYY-MM-DD 형식):**
+   - **규칙 A (날짜만 주어진 경우, 예: 16일):** 년/월은 현재 페이지의 컨텍스트(${year}년 ${month}월)를 기준으로 합니다.
+   - **규칙 B (월과 날짜, 예: 5월 12일):** 년은 현재 페이지의 컨텍스트(${year}년)를 기준으로 합니다.
+   - **규칙 C (년 월 날짜):** 주어진 정보를 그대로 사용합니다.
+   - **규칙 F (상대적 날짜, 예: 다음 주, 내일):** 오늘 날짜(${formatDate(new Date())})를 기준으로 정확히 계산합니다.
+   - **규칙 D & E (기간 일정, 달/년 롤오버 처리):**
+     - **월이 주어지지 않은 기간 (예: 30일부터 4일까지):** 시작일이 종료일보다 큰 경우, 시작일은 현재 컨텍스트(${year}년 ${month}월)로 설정하고, 종료일은 다음 달로 넘겨서 계산합니다.
+     - **월이 주어진 기간 (예: 7월 29일부터 4일까지 수업):** 년은 현재 컨텍스트(${year}년)를 기준으로, 월이 넘어가는 경우를 정확히 계산합니다.
+3. **일정 제목 (title):** 입력된 일정에서 **핵심 과제 이름**만 추출해야 하며, 절대로 한 줄을 초과하지 않도록 합니다.
+4. **시간 (time):** HH:MM 형식 (24시간제)으로 추출합니다. 시간이 명시되지 않았다면 '23:59'를 사용합니다.
+5. **행동 (action):** 사용자가 '삭제', '지워줘', '취소' 등의 명시적인 삭제 단어를 사용하면 'DELETE'로, 그렇지 않으면 'ADD'로 설정합니다.
+
+**[응답 형식]**
+요청을 완벽히 이행한 JSON 객체만 반환하세요.
+`;
+            
+            // AI 요청 JSON Schema 업데이트 (Action 포함)
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            "title": { "type": "STRING", "description": "일정의 핵심 제목 (한 줄)" },
+                            "startDate": { "type": "STRING", "description": "YYYY-MM-DD 형식의 시작 날짜" },
+                            "endDate": { "type": "STRING", "description": "YYYY-MM-DD 형식의 종료 날짜" },
+                            "time": { "type": "STRING", "description": "HH:MM 형식의 시간 (24시간제)" },
+                            "action": { "type": "STRING", "description": "수행할 동작 ('ADD' 또는 'DELETE')" }
+                        },
+                        "required": ["title", "startDate", "endDate", "action"]
+                    }
+                }
+            };
+            
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            let success = false;
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    
+                    if (result.candidates && result.candidates.length > 0 && result.candidates[0].content.parts.length > 0) {
+                        const jsonText = result.candidates[0].content.parts[0].text;
+                        const parsedData = JSON.parse(jsonText);
+                        
+                        if (parsedData.title && parsedData.startDate && parsedData.endDate && parsedData.action) {
+                            if (parsedData.action === 'ADD') {
+                                await addScheduleToFirestore(parsedData);
+                            } else if (parsedData.action === 'DELETE') {
+                                // 삭제 기능은 일치하는 제목/날짜를 찾아야 하므로 복잡함. 여기서는 ADD만 구현하고 DELETE는 추후 확장
+                                document.getElementById('file-status').textContent = `[DELETE 요청] ${parsedData.title}을/를 삭제해야 하지만, 현재는 채팅 기반 삭제 대신 모달 내 삭제 버튼을 사용해 주세요.`;
+                            }
+                            chatInput.value = '';
+                            success = true;
+                        } else {
+                            document.getElementById('file-status').textContent = "AI가 일정 정보를 추출하지 못했습니다. (제목/날짜/행동 확인 필요)";
+                        }
+                    } else {
+                        document.getElementById('file-status').textContent = "API 응답 구조 오류: 일정을 추출할 수 없습니다.";
+                    }
+                    if (success) break;
+                } catch (error) {
+                    console.error(`Attempt ${i + 1} failed:`, error);
+                    if (i < maxRetries - 1) {
+                        await new Promise(resolve => setTimeout(resolve, initialDelay * Math.pow(2, i)));
+                    } else {
+                        document.getElementById('file-status').textContent = "일정 자동 생성에 실패했습니다. 네트워크를 확인하세요.";
+                    }
+                }
+            }
+            
+            loadingIndicator.classList.add('hidden');
+            chatInput.disabled = false;
+        }
+
+        async function addScheduleToFirestore(scheduleData) {
+            try {
+                // 시작일과 종료일이 바뀐 경우 교정
+                if (parseDate(scheduleData.startDate) > parseDate(scheduleData.endDate)) {
+                    [scheduleData.startDate, scheduleData.endDate] = [scheduleData.endDate, scheduleData.startDate];
+                }
+                
+                const scheduleRef = collection(db, `artifacts/${appId}/users/${userId}/schedules`);
+                await addDoc(scheduleRef, {
+                    title: scheduleData.title,
+                    startDate: scheduleData.startDate,
+                    endDate: scheduleData.endDate,
+                    time: scheduleData.time || '23:59',
+                    priority: 1,
+                    completionStatus: 'TODO', 
+                    actualDuration: 0, 
+                    createdAt: serverTimestamp()
+                });
+                document.getElementById('file-status').textContent = `일정: '${scheduleData.title}' (${scheduleData.startDate} ~ ${scheduleData.endDate})가 캘린더에 반영되었습니다.`;
+                console.log("Schedule successfully added to Firestore.");
+            } catch (e) {
+                console.error("Error adding document: ", e);
+                document.getElementById('file-status').textContent = "일정 추가 중 Firestore 오류 발생.";
+            }
+        }
+        
+        // --- 나머지 함수들 (기존과 동일) ---
+        async function ensureInitialFolders() {
+            const docRef = doc(db, `artifacts/${appId}/users/${userId}/configs/folderPaths`);
+            const docSnap = await getDoc(docRef);
+
+            if (!docSnap.exists() || !docSnap.data().paths || docSnap.data().paths.length === 0) {
+                const initialPaths = [
+                    "고1/국어", "고1/수학", "고1/영어",
+                    "고2/국어", "고2/수학", "고2/물리1",
+                    "고3/수학/미적분", "고3/수학/확률과 통계",
+                    "컴퓨터동아리/웹개발", "컴퓨터동아리/AI연구"
+                ];
+                await setDoc(docRef, { paths: initialPaths, createdAt: serverTimestamp() });
+                currentFolderPaths = initialPaths;
+            } else {
+                currentFolderPaths = docSnap.data().paths;
+            }
+            renderFolderList(currentFolderPaths);
+        }
+
+        window.toggleFolder = function(element) { 
+            const content = element.nextElementSibling;
+            if (content.style.maxHeight) {
+                content.style.maxHeight = null;
+            } else {
+                content.style.maxHeight = content.scrollHeight + "px";
+            }
+            element.querySelector('i').setAttribute('data-lucide', content.style.maxHeight ? 'folder-open' : 'folder');
+            lucide.createIcons();
+        }
+        
+        window.downloadFile = function(url) {
+            // 실제 파일 다운로드를 시뮬레이션
+            document.getElementById('file-status').textContent = `파일 다운로드 시뮬레이션: ${url}`;
+        }
+        
+        window.createFolder = async function() { 
+            const input = document.getElementById('new-folder-input');
+            const newPath = input.value.trim();
+            if (!newPath) return;
+
+            if (currentFolderPaths.includes(newPath)) {
+                document.getElementById('file-status').textContent = `경로 '${newPath}'는 이미 존재합니다.`;
+                return;
+            }
+            
+            try {
+                const docRef = doc(db, `artifacts/${appId}/users/${userId}/configs/folderPaths`);
+                const newPaths = [...currentFolderPaths, newPath].sort();
+                await updateDoc(docRef, { paths: newPaths, updatedAt: serverTimestamp() });
+                input.value = '';
+                document.getElementById('file-status').textContent = `'${newPath}' 경로가 추가되었습니다.`;
+            } catch (e) {
+                console.error("Error adding folder path: ", e);
+                document.getElementById('file-status').textContent = "폴더 경로 추가 중 오류 발생.";
+            }
+        }
+
+        function renderFolderList(paths) {
+            const listElement = document.getElementById('folder-path-list');
+            listElement.innerHTML = '';
+            if (paths.length === 0) {
+                listElement.innerHTML = '<p class="text-xs text-gray-500">정의된 경로가 없습니다. 경로를 추가해주세요.</p>';
+                return;
+            }
+            paths.forEach(path => {
+                listElement.innerHTML += `
+                    <div class="text-xs text-gray-700 p-1 bg-white rounded-md mb-1 border border-gray-200">${path}</div>
+                `;
+            });
+        }
+
+        function renderFileExplorer(files) {
+            const explorerContent = document.getElementById('file-explorer-content');
+            explorerContent.innerHTML = '';
+
+            // 폴더 구조 생성 (간소화된 맵 구조)
+            const fileStructure = {};
+            files.forEach(file => {
+                const folder = file.folderPath || '미분류';
+                if (!fileStructure[folder]) {
+                    fileStructure[folder] = [];
+                }
+                fileStructure[folder].push(file);
+            });
+
+            // 폴더 렌더링
+            for (const [folderPath, folderFiles] of Object.entries(fileStructure)) {
+                // 폴더 헤더
+                explorerContent.innerHTML += `
+                    <div class="folder-header p-2 bg-purple-50 hover:bg-purple-100 rounded-lg cursor-pointer transition duration-150 flex items-center justify-between" onclick="window.toggleFolder(this)">
+                        <span class="flex items-center text-sm font-semibold text-purple-700">
+                            <i data-lucide="folder" class="w-4 h-4 mr-2 text-purple-500"></i>
+                            ${folderPath} (${folderFiles.length})
+                        </span>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-purple-500"></i>
+                    </div>
+                    <!-- 폴더 내용 (초기에는 숨김) -->
+                    <div class="folder-content overflow-hidden transition-all duration-300" style="max-height: 0;">
+                        ${folderFiles.map(file => `
+                            <div class="file-item-wrapper p-2 pl-6 text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-100 flex items-center justify-between transition duration-100">
+                                <div class="truncate flex-1" title="${file.fileName} - ${file.summary}">
+                                    <i data-lucide="file-text" class="w-4 h-4 inline mr-1 text-blue-500"></i>
+                                    ${file.fileName}
+                                </div>
+                                <button onclick="window.downloadFile('${file.fileUrl}')" class="text-xs text-blue-500 hover:text-blue-700 ml-2 flex-shrink-0" title="가상 다운로드">
+                                    <i data-lucide="download" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+            lucide.createIcons();
+        }
+
+        // --- 파일 업로드 처리 (AI 분류 포함) (기존과 동일) ---
+        window.handleFileUpload = async function(event) {
+            const file = event.target.files[0];
+            const fileContent = document.getElementById('file-content-input').value.trim();
+
+            if (!file || !fileContent) {
+                document.getElementById('file-status').textContent = "파일과 파일 내용을 모두 입력해야 합니다.";
+                document.getElementById('file-status').classList.remove('text-green-600', 'text-amber-600');
+                document.getElementById('file-status').classList.add('text-red-600');
+                return;
+            }
+
+            const fileStatus = document.getElementById('file-status');
+            fileStatus.textContent = `파일 (${file.name}) 분석 및 AI 분류/요약 중...`;
+            fileStatus.classList.remove('text-gray-500', 'text-green-600', 'text-red-600');
+            fileStatus.classList.add('text-amber-600');
+
+            const fileName = file.name;
+            const fileType = file.type || fileName.split('.').pop();
+
+            const { summary, folderPath } = await getSummaryAndClassification(fileName, fileType, fileContent);
+            
+            try {
+                const filesRef = collection(db, `artifacts/${appId}/users/${userId}/files`);
+                await addDoc(filesRef, {
+                    fileName: fileName,
+                    folderPath: folderPath, 
+                    summary: summary, 
+                    fileUrl: `https://mock-storage.com/${userId}/${fileName}`, 
+                    uploadedAt: serverTimestamp()
+                });
+
+                document.getElementById('file-content-input').value = ''; 
+                event.target.value = ''; 
+
+                fileStatus.textContent = `[${folderPath}] 폴더에 AI가 성공적으로 분류 및 요약했습니다.`;
+                fileStatus.classList.remove('text-amber-600', 'text-red-600');
+                fileStatus.classList.add('text-green-600');
+
+            } catch (e) {
+                console.error("Error adding file metadata: ", e);
+                fileStatus.textContent = `파일 저장 중 오류가 발생했습니다. (경로: ${folderPath})`;
+                fileStatus.classList.remove('text-amber-600');
+                fileStatus.classList.add('text-red-600');
+            }
+        }
+        
+        async function getSummaryAndClassification(fileName, fileType, fileContent) {
+            const folderListString = currentFolderPaths.join(', ');
+            
+            const systemPrompt = `당신은 문서 내용을 요약하고 최적의 계층적 폴더 경로를 결정하는 전문가입니다.
+1. 사용자가 제공한 파일 내용 요약을 한 문장으로 한국어로 작성하세요.
+2. 현재 존재하는 폴더 목록(${folderListString})을 기반으로, 파일 내용에 가장 적절한 계층적 폴더 경로(예: '고3/수학/미적분')를 선택하세요.
+3. 폴더 목록에 완벽하게 일치하는 하위 폴더가 없으면, 가장 가까운 상위 폴더까지만 경로를 반환해야 합니다. (예: '고3/수학'까지만 존재하면 '고3/수학' 반환)`;
+
+            const userQuery = `분류할 파일의 이름: "${fileName}", MIME 타입: "${fileType}". 파일의 내용은 다음과 같습니다: "${fileContent}"`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            "summary": { "type": "STRING", "description": "파일 내용의 한 문장 요약" },
+                            "folderPath": { "type": "STRING", "description": "AI가 결정한 계층적 폴더 경로 (예: 고3/수학)" },
+                        },
+                        "required": ["summary", "folderPath"]
+                    }
+                }
+            };
+            
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    
+                    if (result.candidates && result.candidates.length > 0 && result.candidates[0].content.parts.length > 0) {
+                        const jsonText = result.candidates[0].content.parts[0].text;
+                        const parsedData = JSON.parse(jsonText);
+                        return { 
+                            summary: parsedData.summary || '요약 생성 실패', 
+                            folderPath: parsedData.folderPath || '미분류' 
+                        };
+                    }
+                } catch (error) {
+                    console.error(`AI 분류 시도 ${i + 1} 실패:`, error);
+                    if (i < maxRetries - 1) {
+                        await new Promise(resolve => setTimeout(resolve, initialDelay * Math.pow(2, i)));
+                    }
+                }
+            }
+            return { summary: 'AI 통신 실패로 요약 불가', folderPath: '미분류' }; 
+        }
+
+
+        // --- 초기화 호출 ---
+        window.onload = initializeFirebase;
+    </script>
+
+    <!-- 캘린더 상세 보기 및 수정 모달 -->
+    <div id="day-details-modal" class="modal-overlay hidden" onclick="window.closeDayDetailsModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-start mb-4 border-b pb-2">
+                <h3 id="modal-date-title" class="text-xl font-bold text-gray-800">날짜 일정 상세</h3>
+                <button onclick="window.closeDayDetailsModal()" class="p-1 rounded-full hover:bg-gray-100 transition duration-150">
+                    <i data-lucide="x" class="w-6 h-6 text-gray-600"></i>
+                </button>
+            </div>
+            
+            <div class="mt-4">
+                <ul id="modal-schedule-list" class="space-y-3">
+                    <!-- 일정 목록이 여기에 로드됩니다 -->
+                </ul>
+            </div>
+            <div class="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <p class="text-sm font-semibold text-blue-800">
+                    <i data-lucide="info" class="w-4 h-4 inline mr-1"></i> 일정 수정/추가는 하단 채팅 입력창을 이용해 주세요.
+                </p>
+                <p class="text-xs text-blue-700 mt-1">예: "내일 오전 10시에 수학 문제 풀기" 또는 "7월 20일 일정 삭제해줘"</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- [NEW] 소요 시간 입력 모달 -->
+    <div id="duration-input-modal" class="modal-overlay hidden" onclick="window.closeDurationInputModal()">
+        <div class="input-modal-content" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-start mb-4 border-b pb-2">
+                <h3 class="text-xl font-bold text-gray-800">실제 소요 시간 기록</h3>
+                <button onclick="window.closeDurationInputModal()" class="p-1 rounded-full hover:bg-gray-100 transition duration-150">
+                    <i data-lucide="x" class="w-6 h-6 text-gray-600"></i>
+                </button>
+            </div>
+            
+            <p class="text-sm text-gray-600 mb-3">완료한 일정:</p>
+            <p id="duration-input-title" class="font-semibold text-base text-green-700 mb-4 truncate"></p>
+            
+            <label for="actual-duration-input" class="block text-sm font-medium text-gray-700 mb-2">
+                실제 소요 시간 (분)을 입력하세요:
+            </label>
+            <input type="number" id="actual-duration-input" placeholder="예: 60" min="1" class="w-full p-2 border border-gray-300 rounded-lg text-lg focus:ring-green-500 focus:border-green-500">
+            
+            <p id="duration-input-error" class="text-red-500 text-xs mt-2"></p>
+
+            <button id="submit-duration-button" class="mt-6 w-full bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700 transition duration-150">
+                <i data-lucide="save" class="w-5 h-5 inline mr-1"></i> 기록 저장
+            </button>
+        </div>
+    </div>
+
+
+    <!-- 앱 컨테이너 -->
+    <div id="app-container" class="bg-gray-50">
+
+        <!-- 1. 좌측 사이드바 (토글 가능) -->
+        <div id="sidebar" class="custom-scrollbar flex flex-col">
+            
+            <!-- 햄버거 메뉴 및 사용자 정보 -->
+            <div class="mb-6 pb-4 border-b border-gray-100">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-blue-600 truncate sidebar-toggleable">AI Partner</h2>
+                    <button id="sidebar-toggle" class="p-2 rounded-full hover:bg-gray-100 transition duration-150">
+                        <i data-lucide="menu" class="w-6 h-6 text-gray-700"></i>
+                    </button>
+                </div>
+                
+                <!-- 사용자 정보 섹션 -->
+                <div class="flex items-center space-x-3 sidebar-toggleable">
+                    <div class="w-10 h-10 bg-blue-200 rounded-full flex items-center justify-center text-blue-700 font-bold text-lg">
+                        <i data-lucide="user" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-900">광주제일고 학생</p>
+                        <p id="user-id-display" class="text-xs text-gray-500 truncate">사용자 ID: (로딩 중...)</p>
+                        <p id="user-profile-status" class="text-xs font-medium text-green-500">로그인 완료</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 파일 관리 시스템 섹션 -->
+            <div class="flex-grow flex flex-col">
+                <h3 class="text-lg font-bold text-gray-800 mb-3 sidebar-toggleable flex items-center">
+                    <i data-lucide="file-check" class="w-5 h-5 text-purple-500 mr-2"></i>
+                    문서 자동 분류 시스템
+                </h3>
+                
+                <!-- 폴더 경로 설정 -->
+                <div class="mb-4 p-3 bg-gray-100 rounded-xl">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                        <i data-lucide="plus-square" class="w-4 h-4 mr-1 text-purple-500"></i> 폴더 경로 추가 (예: 고3/수학/미적분)
+                    </h4>
+                    <div class="flex space-x-2 mb-2">
+                        <input type="text" id="new-folder-input" placeholder="새 경로 입력 (예: 고3/탐구)" class="flex-grow p-2 border border-gray-300 rounded-lg text-sm">
+                        <button onclick="window.createFolder()" class="bg-purple-600 text-white px-3 py-1 rounded-lg text-sm font-medium hover:bg-purple-700 transition duration-150">추가</button>
+                    </div>
+                    <div id="folder-path-list" class="mt-2 max-h-40 overflow-y-auto custom-scrollbar p-1">
+                        <!-- renderFolderList 함수에 의해 폴더 목록이 여기에 삽입됩니다. -->
+                        <p class="text-xs text-gray-500">현재 AI 분류 기준 폴더를 로딩 중...</p>
+                    </div>
+                </div>
+
+
+                <!-- 파일 업로드 & 내용 설명 -->
+                <div class="mb-4 border-t border-gray-200 pt-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                        <i data-lucide="file-text" class="w-4 h-4 mr-1 text-blue-500"></i> 파일 내용 설명 입력
+                    </h4>
+                    <!-- 실제 파일 내용을 읽을 수 없으므로, AI 분류를 위해 내용을 입력받습니다. -->
+                    <input type="text" id="file-content-input" placeholder="업로드할 파일의 내용을 요약/설명하세요. (예: 미적분 심화 탐구 보고서)" class="w-full p-2 mb-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500">
+
+                    <label for="file-upload" class="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 cursor-pointer transition duration-150 sidebar-toggleable">
+                        <i data-lucide="upload-cloud" class="w-5 h-5 mr-2"></i>
+                        파일 업로드 & AI 분류 실행
+                    </label>
+                    <input type="file" id="file-upload" class="hidden" onchange="window.handleFileUpload(event)">
+                    <p id="file-status" class="mt-2 text-xs text-gray-500 text-center sidebar-toggleable">파일과 내용을 입력 후 업로드하세요.</p>
+                </div>
+
+
+                <!-- 파일 탐색기 (폴더 섹션) -->
+                <div id="file-explorer-content" class="flex-grow custom-scrollbar space-y-3 pr-2 border-t border-gray-200 pt-4">
+                    <!-- renderFileExplorer 함수에 의해 파일/폴더 목록이 여기에 삽입됩니다. -->
+                    <div class="text-center text-gray-400 col-span-7 py-20 text-lg">
+                        <div class="spinner mx-auto mb-3"></div>
+                        파일 메타데이터를 불러오는 중...
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+
+        <!-- 2. 우측 메인 컨텐츠 (캘린더 & AI 채팅) -->
+        <div id="main-content" class="flex flex-col space-y-6">
+
+            <!-- 캘린더 영역 -->
+            <div id="calendar-area" class="bg-white p-6 rounded-2xl shadow-xl flex-grow flex flex-col">
+                <div class="flex items-center justify-between mb-4">
+                    
+                    <!-- 캘린더 이동 및 제목 -->
+                    <div class="flex items-center space-x-3">
+                        <button onclick="window.changeMonth(-1)" class="p-2 rounded-full hover:bg-gray-100 transition duration-150">
+                            <i data-lucide="chevron-left" class="w-6 h-6 text-gray-700"></i>
+                        </button>
+                        <h2 id="current-month-display" class="text-2xl font-bold text-gray-800 cursor-pointer hover:text-blue-600 transition duration-150" onclick="window.jumpToMonth()">
+                            2025년 10월
+                        </h2>
+                        <button onclick="window.changeMonth(1)" class="p-2 rounded-full hover:bg-gray-100 transition duration-150">
+                            <i data-lucide="chevron-right" class="w-6 h-6 text-gray-700"></i>
+                        </button>
+                    </div>
+
+                    <div class="text-sm font-medium text-gray-500">AI Schedule Partner</div>
+                </div>
+                
+                <!-- 요일 헤더 (HTML에 고정) -->
+                <div class="grid grid-cols-7 gap-2 mb-2">
+                    <div class="text-center font-semibold text-sm py-2 text-gray-500">일</div>
+                    <div class="text-center font-semibold text-sm py-2 text-gray-500">월</div>
+                    <div class="text-center font-semibold text-sm py-2 text-gray-500">화</div>
+                    <div class="text-center font-semibold text-sm py-2 text-gray-500">수</div>
+                    <div class="text-center font-semibold text-sm py-2 text-gray-500">목</div>
+                    <div class="text-center font-semibold text-sm py-2 text-gray-500">금</div>
+                    <div class="text-center font-semibold text-sm py-2 text-gray-500">토</div>
+                </div>
+
+                <!-- 캘린더 그리드 컨테이너 (스크롤 가능) -->
+                <div id="calendar-grid-container" class="flex-grow">
+                    <div id="calendar-grid" class="grid grid-cols-7 gap-2">
+                        <div class="text-center text-gray-400 col-span-7 py-20 text-lg">
+                            <div class="spinner mx-auto mb-3"></div>
+                            일정 데이터를 불러오는 중...
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- AI 채팅 입력 영역 -->
+            <div class="bg-white p-4 rounded-2xl shadow-xl border border-gray-200">
+                <div class="text-xs font-medium text-gray-500 mb-2 flex items-center">
+                    <i data-lucide="bot" class="w-4 h-4 mr-1 text-green-500"></i>
+                    AI 학습 파트너에게 일정을 입력하세요 (예: 다음 주 월요일부터 금요일까지 수학 과제)
+                </div>
+                <div class="flex space-x-3">
+                    <input type="text" id="chat-input" placeholder="일정을 입력하고 엔터 또는 버튼을 누르세요... (삭제 요청: 'XX 일정 삭제해줘')" class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150" onkeydown="if(event.key === 'Enter') window.handleChatInput()">
+                    <button onclick="window.handleChatInput()" class="bg-blue-600 text-white px-5 py-2 rounded-lg font-medium hover:bg-blue-700 transition duration-150 flex items-center justify-center" aria-label="일정 생성">
+                        <span id="loading-indicator" class="hidden spinner w-5 h-5 mr-2"></span>
+                        <i data-lucide="send" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 스크립트: 사이드바 토글 기능 -->
+    <script>
+        document.getElementById('sidebar-toggle').addEventListener('click', () => {
+            const sidebar = document.getElementById('sidebar');
+            const toggleElements = document.querySelectorAll('.sidebar-toggleable');
+            
+            sidebar.classList.toggle('sidebar-minimized');
+
+            const isMinimized = sidebar.classList.contains('sidebar-minimized');
+            
+            toggleElements.forEach(el => {
+                if (isMinimized) {
+                    el.style.opacity = '0';
+                    setTimeout(() => { el.style.display = 'none'; }, 300);
+                } else {
+                    el.style.display = 'block';
+                    setTimeout(() => { el.style.opacity = '1'; }, 10);
+                }
+            });
+            
+            const icon = document.getElementById('sidebar-toggle').querySelector('svg');
+            if (isMinimized) {
+                icon.setAttribute('data-lucide', 'chevrons-right');
+            } else {
+                icon.setAttribute('data-lucide', 'menu');
+            }
+            lucide.createIcons();
+        });
+
+        lucide.createIcons();
+    </script>
+</body>
+</html>
