@@ -3,92 +3,239 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MST 기반 음악 클러스터링 시뮬레이션</title>
+    <title>MST 기반 플레이리스트 생성기</title>
     <style>
         body { font-family: 'Arial', sans-serif; line-height: 1.6; margin: 20px; background-color: #f4f4f9; color: #333; }
         .container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
         h1 { color: #8A2BE2; text-align: center; border-bottom: 2px solid #eee; padding-bottom: 10px; }
         h2 { color: #5B3A9B; margin-top: 25px; }
-        .explanation-box { background-color: #e6e6fa; padding: 15px; border-left: 5px solid #8A2BE2; margin-bottom: 20px; }
-        .graph-area { text-align: center; padding: 20px; border: 1px dashed #ccc; margin-bottom: 20px; }
-        .node { display: inline-block; margin: 10px; padding: 8px 15px; border-radius: 20px; font-weight: bold; }
-        .node-a { background-color: #ffcccc; border: 1px solid #e74c3c; } /* 클러스터 A */
-        .node-b { background-color: #ccffcc; border: 1px solid #2ecc71; } /* 클러스터 B */
-        .edge-label { font-size: 0.9em; color: #7f8c8d; }
-        button { background-color: #8A2BE2; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-size: 1em; }
+        .input-area, .result-area { margin-bottom: 30px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        input[type="text"], input[type="number"] { padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; width: 150px; }
+        button { background-color: #8A2BE2; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-size: 1em; margin-right: 10px; }
         button:hover { background-color: #6A1AA5; }
+        #edgeList, #playlistResult { list-style: none; padding: 0; }
+        #edgeList li, #playlistResult li { background: #e6e6fa; margin: 5px 0; padding: 8px; border-radius: 4px; }
+        .mst-edge { background-color: #ccffcc !important; border-left: 5px solid #2ecc71; }
+        .removed-edge { background-color: #ffcccc !important; border-left: 5px solid #e74c3c; }
+        .cluster-A { color: #e74c3c; font-weight: bold; }
+        .cluster-B { color: #2ecc71; font-weight: bold; }
+        .cluster-C { color: #3498db; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🎵 MST 기반 음악 추천 시스템 시뮬레이션</h1>
-    <p class="explanation-box">
-        <strong>목표:</strong> 최소 신장 트리(MST)를 활용하여 음악들 간의 '유사성'을 기준으로 클러스터(추천 그룹)를 생성합니다.
-    </p>
-
-    <h2>1. 데이터 모델 (노드 & 가중치)</h2>
-    <p><strong>정점 (노드):</strong> 개별 노래 (Song A, B, C, D, E)</p>
-    <p><strong>간선 (가중치):</strong> 두 노래 간의 **비유사성 거리**. (작을수록 유사함)</p>
+    <h1>🎶 MST 기반 플레이리스트 생성기</h1>
     
-    <table border="1" style="width:100%; text-align:center; border-collapse: collapse;">
-        <thead>
-            <tr><th>노래 쌍</th><th>비유사성 거리 (W)</th></tr>
-        </thead>
-        <tbody>
-            <tr><td>A ↔ B</td><td><span style="color:red; font-weight:bold;">2.0</span> (매우 유사)</td></tr>
-            <tr><td>A ↔ C</td><td>5.5</td></tr>
-            <tr><td>B ↔ D</td><td>6.0</td></tr>
-            <tr><td>C ↔ D</td><td><span style="color:red; font-weight:bold;">3.5</span></td></tr>
-            <tr><td>D ↔ E</td><td><span style="color:green; font-weight:bold;">12.0</span> (가장 비유사)</td></tr>
-            <tr><td>A ↔ E</td><td>10.0</td></tr>
-        </tbody>
-    </table>
-    
-    <hr>
-
-    <h2>2. 최소 신장 트리 (MST) 구축 결과</h2>
-    <p>가장 낮은 가중치 순으로 간선을 선택하여 모든 노래를 연결한 결과입니다.</p>
-    
-    <div class="graph-area">
-        <span class="node node-a">Song A</span>
-        <span class="edge-label">---(2.0)---</span>
-        <span class="node node-a">Song B</span>
+    <div class="input-area">
+        <h2>1. 데이터 입력 (노래 및 비유사성)</h2>
+        <p>두 노래(노드) 이름과 그 사이의 비유사성 거리(가중치)를 입력하세요.</p>
+        <div>
+            <input type="text" id="nodeA" placeholder="노래 A 이름">
+            <input type="text" id="nodeB" placeholder="노래 B 이름">
+            <input type="number" id="weight" placeholder="비유사성 (거리)" min="0">
+            <button onclick="addEdge()">간선 추가</button>
+            <button onclick="resetData()" style="background-color: #e74c3c;">초기화</button>
+        </div>
         
-        <br><br>
-        <span class="node node-b">Song C</span>
-        <span class="edge-label">---(3.5)---</span>
-        <span class="node node-b">Song D</span>
-
-        <p style="margin-top: 15px;">**핵심 연결:** (A ↔ B) - W:2.0 / (C ↔ D) - W:3.5 / ... / **(D ↔ E) - W:12.0**</p>
+        <h3>현재 간선 목록 (비유사성 거리)</h3>
+        <ul id="edgeList">
+            </ul>
+        <p style="font-size: 0.9em; color: gray;">* 비유사성이 작을수록 유사한 노래입니다.</p>
     </div>
 
-    <hr>
+    <button onclick="startClustering()" id="startButton">⚙️ 구축 시작 & 플레이리스트 생성!</button>
+    <p id="statusMessage" style="margin-top: 15px; font-weight: bold;"></p>
 
-    <h2>3. 클러스터링 결과 (유사 그룹 도출)</h2>
-    <p>MST에서 가장 가중치가 높은 간선 (**D ↔ E, W:12.0**)을 제거하여 두 개의 클러스터로 분리합니다.</p>
-    
-    <div class="graph-area">
-        <div style="display: inline-block; border: 2px solid #e74c3c; padding: 10px; margin: 10px;">
-            <h3>클러스터 A (예: Chill Ballad)</h3>
-            <span class="node node-a">Song A</span>
-            <span class="node node-a">Song B</span>
-            <p><strong>결론:</strong> 이 그룹 내 노래들은 매우 유사합니다.</p>
-        </div>
-
-        <div style="display: inline-block; border: 2px solid #2ecc71; padding: 10px; margin: 10px;">
-            <h3>클러스터 B (예: Energetic Pop)</h3>
-            <span class="node node-b">Song C</span>
-            <span class="node node-b">Song D</span>
-            <span class="node node-b">Song E</span>
-            <p><strong>결론:</strong> 이 그룹 내 노래들도 유사성이 높습니다.</p>
-        </div>
+    <div class="result-area">
+        <h2>2. MST 구축 결과 및 플레이리스트</h2>
+        
+        <h3>MST 경로 (최소 비유사성 연결)</h3>
+        <p id="mstPath">여기에 MST에 포함된 간선과 총 가중치가 표시됩니다.</p>
+        
+        <h3>생성된 유사 플레이리스트 (클러스터)</h3>
+        <p>MST에서 가장 비싼 간선 2개를 제거하여 3개의 유사 그룹을 만듭니다.</p>
+        <ul id="playlistResult">
+            </ul>
     </div>
-
-    <p style="text-align: center; margin-top: 30px;">
-        <button onclick="alert('클러스터 A의 노래와 유사한 새로운 추천 목록을 사용자에게 제공합니다.')">추천 시뮬레이션 실행</button>
-    </p>
 </div>
+
+<script>
+    // MST 구현을 위한 JavaScript 코드 (Kruskal's Algorithm & Union-Find)
+    let edges = [];
+    let nodes = new Set();
+    const edgeListElement = document.getElementById('edgeList');
+    const mstPathElement = document.getElementById('mstPath');
+    const playlistResultElement = document.getElementById('playlistResult');
+    const statusMessageElement = document.getElementById('statusMessage');
+
+    // 간선 추가 함수
+    function addEdge() {
+        const nodeA = document.getElementById('nodeA').value.trim();
+        const nodeB = document.getElementById('nodeB').value.trim();
+        const weight = parseFloat(document.getElementById('weight').value);
+
+        if (!nodeA || !nodeB || isNaN(weight) || weight < 0 || nodeA === nodeB) {
+            alert('유효한 노드 이름과 양수 가중치를 입력하세요. 노드는 달라야 합니다.');
+            return;
+        }
+
+        // 간선 객체 생성 및 목록에 추가
+        edges.push({ u: nodeA, v: nodeB, w: weight });
+        nodes.add(nodeA);
+        nodes.add(nodeB);
+        
+        // 입력 필드 초기화
+        document.getElementById('nodeA').value = '';
+        document.getElementById('nodeB').value = '';
+        document.getElementById('weight').value = '';
+
+        renderEdges();
+    }
+
+    // 간선 목록 렌더링 함수
+    function renderEdges() {
+        edgeListElement.innerHTML = '';
+        edges.forEach(edge => {
+            const li = document.createElement('li');
+            li.textContent = `${edge.u} ↔ ${edge.v} (W: ${edge.w})`;
+            edgeListElement.appendChild(li);
+        });
+    }
+
+    // 초기화 함수
+    function resetData() {
+        if (confirm('모든 데이터를 초기화하시겠습니까?')) {
+            edges = [];
+            nodes = new Set();
+            renderEdges();
+            mstPathElement.textContent = '여기에 MST에 포함된 간선과 총 가중치가 표시됩니다.';
+            playlistResultElement.innerHTML = '';
+            statusMessageElement.textContent = '';
+        }
+    }
+
+    // Union-Find (Disjoint Set) 구현
+    let parent = {};
+    const find = (i) => {
+        if (parent[i] === i) return i;
+        return parent[i] = find(parent[i]);
+    };
+    const union = (i, j) => {
+        const rootI = find(i);
+        const rootJ = find(j);
+        if (rootI !== rootJ) {
+            parent[rootI] = rootJ;
+            return true;
+        }
+        return false;
+    };
+
+    // MST (Kruskal) 및 클러스터링 함수
+    function startClustering() {
+        if (nodes.size < 2 || edges.length === 0) {
+            alert('최소 2개 이상의 노드와 간선을 입력해야 합니다.');
+            return;
+        }
+
+        statusMessageElement.textContent = 'MST 구축 중...';
+        
+        // 1. 초기화 (Union-Find)
+        parent = {};
+        nodes.forEach(node => parent[node] = node);
+        
+        // 2. 가중치(비유사성) 기준으로 간선 오름차순 정렬
+        const sortedEdges = [...edges].sort((a, b) => a.w - b.w);
+        
+        let mstEdges = [];
+        let totalWeight = 0;
+
+        // 3. Kruskal's Algorithm 실행
+        for (const edge of sortedEdges) {
+            if (union(edge.u, edge.v)) {
+                mstEdges.push(edge);
+                totalWeight += edge.w;
+            }
+        }
+
+        // 4. MST 결과 출력
+        mstPathElement.innerHTML = `<strong>총 최소 비유사성: ${totalWeight.toFixed(2)}</strong><br>
+                                   MST 간선: ${mstEdges.map(e => `${e.u}↔${e.v} (W:${e.w})`).join(', ')}`;
+        
+        // 5. 클러스터링 (가장 비싼 간선 2개 제거)
+        // MST 간선을 가중치 내림차순으로 정렬
+        const mstSortedDesc = [...mstEdges].sort((a, b) => b.w - a.w);
+        
+        // 상위 K-1개 (여기서는 2개) 간선 제거
+        const K_minus_1 = Math.min(mstEdges.length - 1, 2); // 최소 1개는 남겨야 함
+        const removedEdges = mstSortedDesc.slice(0, K_minus_1);
+        const finalMstEdges = mstSortedDesc.slice(K_minus_1);
+
+        // 6. Union-Find 재실행 (클러스터 확인)
+        parent = {};
+        nodes.forEach(node => parent[node] = node);
+
+        // 남은 간선들로 다시 연결 (클러스터 형성)
+        for (const edge of finalMstEdges) {
+            union(edge.u, edge.v);
+        }
+
+        // 7. 클러스터 그룹핑 및 플레이리스트 생성
+        const clusters = {};
+        nodes.forEach(node => {
+            const root = find(node);
+            if (!clusters[root]) clusters[root] = [];
+            clusters[root].push(node);
+        });
+
+        playlistResultElement.innerHTML = '';
+        let clusterIndex = 0;
+        const clusterClasses = ['cluster-A', 'cluster-B', 'cluster-C'];
+        
+        for (const root in clusters) {
+            const className = clusterClasses[clusterIndex % clusterClasses.length];
+            const li = document.createElement('li');
+            li.innerHTML = `<strong class="${className}">플레이리스트 ${clusterIndex + 1} (${clusters[root].length}곡):</strong> ${clusters[root].join(', ')}`;
+            playlistResultElement.appendChild(li);
+            clusterIndex++;
+        }
+        
+        statusMessageElement.textContent = '✅ 구축 완료! 유사 플레이리스트가 생성되었습니다.';
+        
+        // 시각적으로 어떤 간선이 제거되었는지 목록에 표시 (선택 사항)
+        renderFinalEdges(mstEdges, removedEdges);
+    }
+    
+    // 최종 간선 시각화 렌더링 (MST 간선 강조 및 제거된 간선 표시)
+    function renderFinalEdges(mstEdges, removedEdges) {
+        edgeListElement.innerHTML = '';
+        
+        const allEdges = [...edges].sort((a, b) => a.w - b.w); // 원래 순서대로 정렬 (MST 구축 순서)
+
+        allEdges.forEach(edge => {
+            const li = document.createElement('li');
+            li.textContent = `${edge.u} ↔ ${edge.v} (W: ${edge.w})`;
+            
+            const isMST = mstEdges.some(e => (e.u === edge.u && e.v === edge.v && e.w === edge.w) || (e.u === edge.v && e.v === edge.u && e.w === edge.w));
+            
+            if (isMST) {
+                li.classList.add('mst-edge');
+            }
+            
+            const isRemoved = removedEdges.some(r => (r.u === edge.u && r.v === edge.v && r.w === edge.w) || (r.u === edge.v && r.v === edge.u && r.w === edge.w));
+            
+            if (isRemoved) {
+                li.classList.add('removed-edge');
+                li.textContent += ' ❌ (제거됨: 클러스터 경계)';
+            } else if (isMST) {
+                 li.textContent += ' ✅ (MST 핵심 연결)';
+            }
+            
+            edgeListElement.appendChild(li);
+        });
+    }
+
+</script>
 
 </body>
 </html>
