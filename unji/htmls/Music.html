@@ -3,20 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MST 기반 플레이리스트 생성기</title>
+    <title>MST 기반 플레이리스트 생성기 (시각화)</title>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <style>
         body { font-family: 'Arial', sans-serif; line-height: 1.6; margin: 20px; background-color: #f4f4f9; color: #333; }
-        .container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
         h1 { color: #8A2BE2; text-align: center; border-bottom: 2px solid #eee; padding-bottom: 10px; }
         h2 { color: #5B3A9B; margin-top: 25px; }
-        .input-area, .result-area { margin-bottom: 30px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
-        input[type="text"], input[type="number"] { padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; width: 150px; }
+        .input-area { margin-bottom: 30px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        input[type="text"], input[type="number"] { padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; width: 120px; }
         button { background-color: #8A2BE2; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-size: 1em; margin-right: 10px; }
         button:hover { background-color: #6A1AA5; }
-        #edgeList, #playlistResult { list-style: none; padding: 0; }
-        #edgeList li, #playlistResult li { background: #e6e6fa; margin: 5px 0; padding: 8px; border-radius: 4px; }
-        .mst-edge { background-color: #ccffcc !important; border-left: 5px solid #2ecc71; }
-        .removed-edge { background-color: #ffcccc !important; border-left: 5px solid #e74c3c; }
+        #network { width: 100%; height: 500px; border: 1px solid #ccc; margin-top: 20px; }
+        #edgeList { list-style: none; padding: 0; max-height: 150px; overflow-y: auto; }
+        #edgeList li { background: #e6e6fa; margin: 5px 0; padding: 5px; border-radius: 4px; }
+        .result-area { margin-top: 20px; }
         .cluster-A { color: #e74c3c; font-weight: bold; }
         .cluster-B { color: #2ecc71; font-weight: bold; }
         .cluster-C { color: #3498db; font-weight: bold; }
@@ -25,76 +26,134 @@
 <body>
 
 <div class="container">
-    <h1>🎶 MST 기반 플레이리스트 생성기</h1>
+    <h1>🎶 MST 기반 플레이리스트 생성기 (시각화)</h1>
     
     <div class="input-area">
         <h2>1. 데이터 입력 (노래 및 비유사성)</h2>
-        <p>두 노래(노드) 이름과 그 사이의 비유사성 거리(가중치)를 입력하세요.</p>
         <div>
             <input type="text" id="nodeA" placeholder="노래 A 이름">
             <input type="text" id="nodeB" placeholder="노래 B 이름">
             <input type="number" id="weight" placeholder="비유사성 (거리)" min="0">
             <button onclick="addEdge()">간선 추가</button>
             <button onclick="resetData()" style="background-color: #e74c3c;">초기화</button>
+            <button onclick="loadSampleData()" style="background-color: #3498db;">샘플 데이터 로드</button>
         </div>
         
-        <h3>현재 간선 목록 (비유사성 거리)</h3>
-        <ul id="edgeList">
-            </ul>
-        <p style="font-size: 0.9em; color: gray;">* 비유사성이 작을수록 유사한 노래입니다.</p>
+        <div style="display: flex; justify-content: space-between;">
+            <div>
+                <h3>현재 간선 목록</h3>
+                <ul id="edgeList"></ul>
+            </div>
+            <div>
+                <button onclick="startClustering()" id="startButton" style="margin-top: 30px;">
+                    ⚙️ 구축 시작 & 시각화!
+                </button>
+                <p id="statusMessage" style="margin-top: 15px; font-weight: bold;"></p>
+            </div>
+        </div>
     </div>
 
-    <button onclick="startClustering()" id="startButton">⚙️ 구축 시작 & 플레이리스트 생성!</button>
-    <p id="statusMessage" style="margin-top: 15px; font-weight: bold;"></p>
+    <h2>2. MST 구축 및 클러스터 시각화</h2>
+    <p>그래프의 색깔은 클러스터(플레이리스트)를 의미합니다.</p>
+    <div id="network"></div>
 
     <div class="result-area">
-        <h2>2. MST 구축 결과 및 플레이리스트</h2>
+        <h3>최소 신장 트리 (MST) 정보</h3>
+        <p id="mstInfo">여기에 MST의 총 가중치 정보가 표시됩니다.</p>
         
-        <h3>MST 경로 (최소 비유사성 연결)</h3>
-        <p id="mstPath">여기에 MST에 포함된 간선과 총 가중치가 표시됩니다.</p>
-        
-        <h3>생성된 유사 플레이리스트 (클러스터)</h3>
-        <p>MST에서 가장 비싼 간선 2개를 제거하여 3개의 유사 그룹을 만듭니다.</p>
-        <ul id="playlistResult">
-            </ul>
+        <h3>생성된 유사 플레이리스트</h3>
+        <ul id="playlistResult"></ul>
     </div>
 </div>
 
 <script>
-    // MST 구현을 위한 JavaScript 코드 (Kruskal's Algorithm & Union-Find)
+    // --- Global Variables and Setup ---
     let edges = [];
     let nodes = new Set();
-    const edgeListElement = document.getElementById('edgeList');
-    const mstPathElement = document.getElementById('mstPath');
-    const playlistResultElement = document.getElementById('playlistResult');
-    const statusMessageElement = document.getElementById('statusMessage');
+    const networkElement = document.getElementById('network');
+    let visNetwork = null;
+    const clusterColors = ['#e74c3c', '#2ecc71', '#3498db', '#f39c12', '#9b59b6'];
 
-    // 간선 추가 함수
+    // --- Graph Rendering Setup (Vis.js) ---
+    function drawGraph(graphNodes, graphEdges) {
+        const data = {
+            nodes: new vis.DataSet(graphNodes),
+            edges: new vis.DataSet(graphEdges)
+        };
+        const options = {
+            nodes: {
+                shape: 'dot',
+                size: 20,
+                font: { size: 14, color: '#333' },
+                borderWidth: 2
+            },
+            edges: {
+                width: 2,
+                color: { inherit: 'from' },
+                font: { align: 'top' }
+            },
+            physics: { enabled: true }
+        };
+        visNetwork = new vis.Network(networkElement, data, options);
+    }
+    
+    // --- Data Management Functions ---
     function addEdge() {
         const nodeA = document.getElementById('nodeA').value.trim();
         const nodeB = document.getElementById('nodeB').value.trim();
         const weight = parseFloat(document.getElementById('weight').value);
 
         if (!nodeA || !nodeB || isNaN(weight) || weight < 0 || nodeA === nodeB) {
-            alert('유효한 노드 이름과 양수 가중치를 입력하세요. 노드는 달라야 합니다.');
+            alert('유효한 노드 이름과 양수 가중치를 입력하세요.');
             return;
         }
 
-        // 간선 객체 생성 및 목록에 추가
         edges.push({ u: nodeA, v: nodeB, w: weight });
         nodes.add(nodeA);
         nodes.add(nodeB);
         
-        // 입력 필드 초기화
+        // Clear inputs
         document.getElementById('nodeA').value = '';
         document.getElementById('nodeB').value = '';
         document.getElementById('weight').value = '';
 
         renderEdges();
+        updateInitialGraph();
+    }
+    
+    function loadSampleData() {
+        resetData();
+        const sampleEdges = [
+            { u: 'Rock A', v: 'Rock B', w: 3 },
+            { u: 'Rock A', v: 'Pop C', w: 10 },
+            { u: 'Rock B', v: 'Pop D', w: 15 },
+            { u: 'Pop C', v: 'Pop D', w: 4 },
+            { u: 'Pop D', v: 'Jazz E', w: 18 }, // 이 간선이 클러스터 경계가 될 가능성 높음
+            { u: 'Pop C', v: 'Jazz E', w: 8 },
+            { u: 'Rock A', v: 'Jazz E', w: 20 },
+            { u: 'Jazz E', v: 'Jazz F', w: 2 },
+        ];
+        sampleEdges.forEach(e => {
+            edges.push(e);
+            nodes.add(e.u);
+            nodes.add(e.v);
+        });
+        renderEdges();
+        updateInitialGraph();
     }
 
-    // 간선 목록 렌더링 함수
+    function resetData() {
+        edges = [];
+        nodes = new Set();
+        document.getElementById('edgeList').innerHTML = '';
+        document.getElementById('playlistResult').innerHTML = '';
+        document.getElementById('mstInfo').textContent = '여기에 MST의 총 가중치 정보가 표시됩니다.';
+        document.getElementById('statusMessage').textContent = '';
+        drawGraph([], []); // Clear graph visualization
+    }
+
     function renderEdges() {
+        const edgeListElement = document.getElementById('edgeList');
         edgeListElement.innerHTML = '';
         edges.forEach(edge => {
             const li = document.createElement('li');
@@ -103,19 +162,20 @@
         });
     }
 
-    // 초기화 함수
-    function resetData() {
-        if (confirm('모든 데이터를 초기화하시겠습니까?')) {
-            edges = [];
-            nodes = new Set();
-            renderEdges();
-            mstPathElement.textContent = '여기에 MST에 포함된 간선과 총 가중치가 표시됩니다.';
-            playlistResultElement.innerHTML = '';
-            statusMessageElement.textContent = '';
-        }
+    function updateInitialGraph() {
+        const graphNodes = Array.from(nodes).map(node => ({ id: node, label: node, color: '#9DD' }));
+        const graphEdges = edges.map((edge, index) => ({ 
+            id: index, 
+            from: edge.u, 
+            to: edge.v, 
+            label: String(edge.w), 
+            color: { color: '#888' }, 
+            dashes: true 
+        }));
+        drawGraph(graphNodes, graphEdges);
     }
-
-    // Union-Find (Disjoint Set) 구현
+    
+    // --- MST & Clustering Logic (Kruskal & Union-Find) ---
     let parent = {};
     const find = (i) => {
         if (parent[i] === i) return i;
@@ -130,57 +190,56 @@
         }
         return false;
     };
-
-    // MST (Kruskal) 및 클러스터링 함수
+    
     function startClustering() {
         if (nodes.size < 2 || edges.length === 0) {
             alert('최소 2개 이상의 노드와 간선을 입력해야 합니다.');
             return;
         }
 
-        statusMessageElement.textContent = 'MST 구축 중...';
+        document.getElementById('statusMessage').textContent = 'MST 구축 및 클러스터링 중...';
         
-        // 1. 초기화 (Union-Find)
+        // 1. Kruskal's Algorithm
         parent = {};
         nodes.forEach(node => parent[node] = node);
-        
-        // 2. 가중치(비유사성) 기준으로 간선 오름차순 정렬
         const sortedEdges = [...edges].sort((a, b) => a.w - b.w);
         
         let mstEdges = [];
         let totalWeight = 0;
 
-        // 3. Kruskal's Algorithm 실행
         for (const edge of sortedEdges) {
             if (union(edge.u, edge.v)) {
                 mstEdges.push(edge);
                 totalWeight += edge.w;
             }
         }
-
-        // 4. MST 결과 출력
-        mstPathElement.innerHTML = `<strong>총 최소 비유사성: ${totalWeight.toFixed(2)}</strong><br>
-                                   MST 간선: ${mstEdges.map(e => `${e.u}↔${e.v} (W:${e.w})`).join(', ')}`;
         
-        // 5. 클러스터링 (가장 비싼 간선 2개 제거)
+        if (mstEdges.length !== nodes.size - 1 && nodes.size > 1) {
+             document.getElementById('statusMessage').textContent = '🚨 오류: 그래프가 완전히 연결되어 있지 않아 MST를 완성할 수 없습니다.';
+             return;
+        }
+
+        document.getElementById('mstInfo').textContent = `총 최소 비유사성 (MST 가중치 합): ${totalWeight.toFixed(2)}`;
+        
+        // 2. 클러스터링 (가장 비싼 간선 K-1개 제거)
+        const K_CLUSTERS = 3; // 목표 클러스터 개수 (예시로 3개)
+        const K_minus_1 = Math.min(mstEdges.length - 1, K_CLUSTERS - 1); 
+        
         // MST 간선을 가중치 내림차순으로 정렬
         const mstSortedDesc = [...mstEdges].sort((a, b) => b.w - a.w);
         
-        // 상위 K-1개 (여기서는 2개) 간선 제거
-        const K_minus_1 = Math.min(mstEdges.length - 1, 2); // 최소 1개는 남겨야 함
         const removedEdges = mstSortedDesc.slice(0, K_minus_1);
         const finalMstEdges = mstSortedDesc.slice(K_minus_1);
 
-        // 6. Union-Find 재실행 (클러스터 확인)
+        // 3. Union-Find 재실행 (클러스터 형성)
         parent = {};
         nodes.forEach(node => parent[node] = node);
 
-        // 남은 간선들로 다시 연결 (클러스터 형성)
         for (const edge of finalMstEdges) {
             union(edge.u, edge.v);
         }
 
-        // 7. 클러스터 그룹핑 및 플레이리스트 생성
+        // 4. 클러스터 그룹핑
         const clusters = {};
         nodes.forEach(node => {
             const root = find(node);
@@ -188,53 +247,91 @@
             clusters[root].push(node);
         });
 
-        playlistResultElement.innerHTML = '';
-        let clusterIndex = 0;
-        const clusterClasses = ['cluster-A', 'cluster-B', 'cluster-C'];
+        // 5. 시각화 업데이트
+        visualizeResult(mstEdges, removedEdges, clusters);
         
+        // 6. 플레이리스트 결과 출력
+        displayPlaylistResult(clusters);
+        document.getElementById('statusMessage').textContent = '✅ 구축 완료! 그래프 및 플레이리스트를 확인하세요.';
+    }
+
+    // --- Result Visualization Functions ---
+    function visualizeResult(mstEdges, removedEdges, clusters) {
+        const clusterMap = {};
+        let clusterIndex = 0;
+        
+        // 노드 색상 매핑
         for (const root in clusters) {
-            const className = clusterClasses[clusterIndex % clusterClasses.length];
-            const li = document.createElement('li');
-            li.innerHTML = `<strong class="${className}">플레이리스트 ${clusterIndex + 1} (${clusters[root].length}곡):</strong> ${clusters[root].join(', ')}`;
-            playlistResultElement.appendChild(li);
+            clusters[root].forEach(node => {
+                clusterMap[node] = clusterColors[clusterIndex % clusterColors.length];
+            });
             clusterIndex++;
         }
         
-        statusMessageElement.textContent = '✅ 구축 완료! 유사 플레이리스트가 생성되었습니다.';
-        
-        // 시각적으로 어떤 간선이 제거되었는지 목록에 표시 (선택 사항)
-        renderFinalEdges(mstEdges, removedEdges);
-    }
-    
-    // 최종 간선 시각화 렌더링 (MST 간선 강조 및 제거된 간선 표시)
-    function renderFinalEdges(mstEdges, removedEdges) {
-        edgeListElement.innerHTML = '';
-        
-        const allEdges = [...edges].sort((a, b) => a.w - b.w); // 원래 순서대로 정렬 (MST 구축 순서)
+        const graphNodes = Array.from(nodes).map(node => ({ 
+            id: node, 
+            label: node, 
+            color: clusterMap[node] 
+        }));
 
-        allEdges.forEach(edge => {
-            const li = document.createElement('li');
-            li.textContent = `${edge.u} ↔ ${edge.v} (W: ${edge.w})`;
-            
+        const graphEdges = edges.map((edge, index) => {
+            // MST 포함 여부
             const isMST = mstEdges.some(e => (e.u === edge.u && e.v === edge.v && e.w === edge.w) || (e.u === edge.v && e.v === edge.u && e.w === edge.w));
-            
-            if (isMST) {
-                li.classList.add('mst-edge');
-            }
-            
+            // 제거된 간선 여부 (클러스터 경계)
             const isRemoved = removedEdges.some(r => (r.u === edge.u && r.v === edge.v && r.w === edge.w) || (r.u === edge.v && r.v === edge.u && r.w === edge.w));
             
-            if (isRemoved) {
-                li.classList.add('removed-edge');
-                li.textContent += ' ❌ (제거됨: 클러스터 경계)';
-            } else if (isMST) {
-                 li.textContent += ' ✅ (MST 핵심 연결)';
+            let color = '#AAA'; // 기본 색상 (MST 아님)
+            let width = 1;
+            let dashes = true;
+
+            if (isMST && !isRemoved) {
+                // MST에 포함되고, 제거되지 않은 간선 (클러스터 내부 연결)
+                color = clusterMap[edge.u]; // 클러스터 색상으로 표시
+                width = 4;
+                dashes = false;
+            } else if (isRemoved) {
+                // 제거된 간선 (클러스터 경계)
+                color = '#FF0000'; 
+                width = 2;
+                dashes = true;
             }
-            
-            edgeListElement.appendChild(li);
+            // 그 외 MST에 포함되지 않은 간선은 기본 회색 점선
+
+            return { 
+                id: index, 
+                from: edge.u, 
+                to: edge.v, 
+                label: String(edge.w), 
+                color: { color: color }, 
+                width: width,
+                dashes: dashes
+            };
         });
+        
+        drawGraph(graphNodes, graphEdges);
     }
 
+    function displayPlaylistResult(clusters) {
+        const playlistResultElement = document.getElementById('playlistResult');
+        playlistResultElement.innerHTML = '';
+        let clusterIndex = 0;
+        const clusterClasses = ['cluster-A', 'cluster-B', 'cluster-C', 'cluster-D', 'cluster-E'];
+        
+        for (const root in clusters) {
+            const className = clusterClasses[clusterIndex % clusterClasses.length];
+            const colorCode = clusterColors[clusterIndex % clusterColors.length];
+            
+            const li = document.createElement('li');
+            li.innerHTML = `<strong style="color:${colorCode}">[플레이리스트 ${clusterIndex + 1}] (${clusters[root].length}곡):</strong> ${clusters[root].join(', ')}`;
+            playlistResultElement.appendChild(li);
+            clusterIndex++;
+        }
+    }
+    
+    // Initial graph drawing
+    document.addEventListener('DOMContentLoaded', () => {
+        drawGraph([], []);
+    });
 </script>
 
 </body>
